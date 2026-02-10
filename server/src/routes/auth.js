@@ -30,6 +30,7 @@ router.post('/login', async (req, res) => {
       username: agent.username,
       displayName: agent.display_name,
       twilioIdentity: agent.twilio_identity,
+      twilioPhoneNumber: agent.twilio_phone_number,
     };
 
     const accessToken = jwt.sign(payload, config.jwtSecret, { expiresIn: '1h' });
@@ -69,6 +70,7 @@ router.post('/refresh', async (req, res) => {
       username: agent.username,
       displayName: agent.display_name,
       twilioIdentity: agent.twilio_identity,
+      twilioPhoneNumber: agent.twilio_phone_number,
     };
 
     const newAccessToken = jwt.sign(payload, config.jwtSecret, { expiresIn: '1h' });

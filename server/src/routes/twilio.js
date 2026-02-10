@@ -16,12 +16,17 @@ router.post('/voice', validateTwilio, async (req, res) => {
   logger.info({ To, From, CallSid, Direction }, 'Voice webhook hit');
 
   try {
+    // Find the agent by their Twilio identity (needed for both outbound caller ID and tracking)
+    const fromIdentity = From ? From.replace('client:', '') : null;
+    const agent = fromIdentity ? await agentService.findByIdentity(fromIdentity) : null;
+    const agentPhone = agent?.twilio_phone_number || config.twilio.phoneNumber;
+
     // Outbound call from agent (To is a phone number)
-    if (To && !To.startsWith('client:') && To !== config.twilio.phoneNumber) {
+    if (To && !To.startsWith('client:') && To !== agentPhone && To !== config.twilio.phoneNumber) {
       const conferenceName = `conf_${CallSid}`;
 
       // Put the agent into a conference
-      const dial = twiml.dial({ callerId: config.twilio.phoneNumber });
+      const dial = twiml.dial({ callerId: agentPhone });
       dial.conference(
         {
           startConferenceOnEnter: true,
@@ -36,17 +41,13 @@ router.post('/voice', validateTwilio, async (req, res) => {
         conferenceName
       );
 
-      // Find the agent by their Twilio identity
-      const fromIdentity = req.body.From ? req.body.From.replace('client:', '') : null;
-      const agent = fromIdentity ? await agentService.findByIdentity(fromIdentity) : null;
-
       // Dial the external number into the conference via REST API
       const twilioClient = require('../services/twilioClient');
       twilioClient.conferences(conferenceName)
         .participants
         .create({
           to: To,
-          from: config.twilio.phoneNumber,
+          from: agentPhone,
           earlyMedia: true,
           endConferenceOnExit: true,
           statusCallback: `${config.serverBaseUrl}/api/twilio/conference-status`,
@@ -62,7 +63,7 @@ router.post('/voice', validateTwilio, async (req, res) => {
               conferenceName,
               agentId: agent.id,
               direction: 'outbound',
-              from: config.twilio.phoneNumber,
+              from: agentPhone,
               to: To,
               status: 'in-progress',
             });
@@ -71,7 +72,7 @@ router.post('/voice', validateTwilio, async (req, res) => {
               callSid: CallSid,
               direction: 'outbound',
               agentId: agent.id,
-              from: config.twilio.phoneNumber,
+              from: agentPhone,
               to: To,
               status: 'initiated',
             });
@@ -99,31 +100,51 @@ router.post('/voice', validateTwilio, async (req, res) => {
       return res.send(twiml.toString());
     }
 
-    // Inbound call to our Twilio number
-    if (Direction === 'inbound' || To === config.twilio.phoneNumber) {
-      logger.info({ From, CallSid }, 'Inbound call received');
+    // Inbound call — look up agent by the called number
+    if (Direction === 'inbound' || To === config.twilio.phoneNumber || await agentService.findByPhoneNumber(To)) {
+      logger.info({ From, CallSid, To }, 'Inbound call received');
 
-      const availableAgents = await agentService.listAvailable();
+      const ownerAgent = await agentService.findByPhoneNumber(To);
 
-      if (availableAgents.length === 0) {
-        twiml.say('We are sorry, no agents are available right now. Please try again later.');
-        twiml.hangup();
-        res.type('text/xml');
-        return res.send(twiml.toString());
-      }
+      if (ownerAgent) {
+        // Route to the specific agent who owns the called number
+        if (ownerAgent.status === 'available') {
+          const dial = twiml.dial({
+            callerId: From,
+            timeout: 30,
+            record: 'record-from-answer',
+            recordingStatusCallback: `${config.serverBaseUrl}/api/twilio/recording-status`,
+            recordingStatusCallbackEvent: 'completed',
+            action: `${config.serverBaseUrl}/api/twilio/voice-action`,
+          });
+          dial.client(ownerAgent.twilio_identity);
+        } else {
+          twiml.say('We are sorry, the agent you are trying to reach is not available right now. Please try again later.');
+          twiml.hangup();
+        }
+      } else {
+        // Fallback: no agent owns this number — ring all available agents (shared number behavior)
+        const availableAgents = await agentService.listAvailable();
 
-      // Ring all available agents simultaneously
-      const dial = twiml.dial({
-        callerId: From,
-        timeout: 30,
-        record: 'record-from-answer',
-        recordingStatusCallback: `${config.serverBaseUrl}/api/twilio/recording-status`,
-        recordingStatusCallbackEvent: 'completed',
-        action: `${config.serverBaseUrl}/api/twilio/voice-action`,
-      });
+        if (availableAgents.length === 0) {
+          twiml.say('We are sorry, no agents are available right now. Please try again later.');
+          twiml.hangup();
+          res.type('text/xml');
+          return res.send(twiml.toString());
+        }
 
-      for (const agent of availableAgents) {
-        dial.client(agent.twilio_identity);
+        const dial = twiml.dial({
+          callerId: From,
+          timeout: 30,
+          record: 'record-from-answer',
+          recordingStatusCallback: `${config.serverBaseUrl}/api/twilio/recording-status`,
+          recordingStatusCallbackEvent: 'completed',
+          action: `${config.serverBaseUrl}/api/twilio/voice-action`,
+        });
+
+        for (const a of availableAgents) {
+          dial.client(a.twilio_identity);
+        }
       }
 
       // Log the inbound call
@@ -131,8 +152,9 @@ router.post('/voice', validateTwilio, async (req, res) => {
         callSid: CallSid,
         direction: 'inbound',
         from: From,
-        to: config.twilio.phoneNumber,
+        to: To,
         status: 'ringing',
+        agentId: ownerAgent ? ownerAgent.id : undefined,
       });
 
       // Notify agents of incoming call via Socket.IO

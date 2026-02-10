@@ -262,7 +262,7 @@ router.post('/transfer', authMiddleware, async (req, res) => {
       .participants
       .create({
         to: `client:${targetAgent.twilio_identity}`,
-        from: config.twilio.phoneNumber,
+        from: req.agent.twilioPhoneNumber || config.twilio.phoneNumber,
         endConferenceOnExit: false,
       });
 
