@@ -259,8 +259,8 @@ router.post('/transfer', authMiddleware, async (req, res) => {
     }
 
     // Verify the requesting agent owns this call
-    const activeCall = await callService.getActiveCallByConference(conferenceName);
-    if (activeCall && activeCall.agent_id !== req.agent.id) {
+    const agentCall = await callService.getActiveCallByAgent(req.agent.id);
+    if (!agentCall || agentCall.conference_name !== conferenceName) {
       return res.status(403).json({ error: 'Not authorized to control this call' });
     }
 
@@ -414,8 +414,8 @@ router.post('/hangup', authMiddleware, async (req, res) => {
     }
 
     // Verify the requesting agent owns this call
-    const activeCall = await callService.getActiveCallByConference(conferenceName);
-    if (activeCall && activeCall.agent_id !== req.agent.id) {
+    const agentCall = await callService.getActiveCallByAgent(req.agent.id);
+    if (!agentCall || agentCall.conference_name !== conferenceName) {
       return res.status(403).json({ error: 'Not authorized to control this call' });
     }
 

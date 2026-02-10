@@ -140,9 +140,8 @@ export function CallProvider({ children }) {
     };
 
     const onConfStarted = (data) => {
-      if (conferenceName && data.conferenceName !== conferenceName) return;
+      if (!conferenceName || data.conferenceName !== conferenceName) return;
       setConferenceSid(data.conferenceSid);
-      if (!conferenceName) setConferenceName(data.conferenceName);
       setCallState('in-progress');
     };
 
