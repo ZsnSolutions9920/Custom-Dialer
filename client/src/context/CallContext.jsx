@@ -134,34 +134,27 @@ export function CallProvider({ children }) {
     if (!socket) return;
 
     const onOutbound = (data) => {
-      if (data.agentId !== agent?.id) return;
       setConferenceName(data.conferenceName);
       setParticipantCallSid(data.participantCallSid);
     };
 
     const onConfStarted = (data) => {
-      if (!conferenceName || data.conferenceName !== conferenceName) return;
       setConferenceSid(data.conferenceSid);
+      if (!conferenceName) setConferenceName(data.conferenceName);
       setCallState('in-progress');
     };
 
     const onParticipantJoined = (data) => {
-      if (conferenceName === data.conferenceName) {
-        setConferenceSid((prev) => prev || data.conferenceSid);
-      }
+      setConferenceSid((prev) => prev || data.conferenceSid);
     };
 
-    const onCallEnded = (data) => {
-      if (data.conferenceName === conferenceName || data.conferenceSid === conferenceSid) {
-        resetCallState();
-      }
+    const onCallEnded = () => {
+      resetCallState();
     };
 
     const onHold = (data) => {
-      if (data.conferenceSid === conferenceSid) {
-        setIsHeld(data.hold);
-        setCallState(data.hold ? 'on-hold' : 'in-progress');
-      }
+      setIsHeld(data.hold);
+      setCallState(data.hold ? 'on-hold' : 'in-progress');
     };
 
     socket.on('call:outbound', onOutbound);
@@ -177,7 +170,7 @@ export function CallProvider({ children }) {
       socket.off('call:ended', onCallEnded);
       socket.off('call:hold', onHold);
     };
-  }, [socket, agent, conferenceName, conferenceSid]);
+  }, [socket]);
 
   const resetCallState = useCallback(() => {
     setActiveCall(null);

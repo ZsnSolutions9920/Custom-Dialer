@@ -15,6 +15,7 @@ function setupAgentPresence(io) {
     }
 
     connectedAgents.set(socket.id, agentId);
+    socket.join(`agent:${agentId}`);
     logger.info({ agentId, socketId: socket.id }, 'Agent connected via WebSocket');
 
     // Broadcast agent list

@@ -240,7 +240,7 @@ router.post('/hold', authMiddleware, async (req, res) => {
 
     const io = req.app.get('io');
     if (io) {
-      io.emit('call:hold', { conferenceSid, participantCallSid, hold });
+      io.to(`agent:${req.agent.id}`).emit('call:hold', { conferenceSid, participantCallSid, hold });
     }
 
     res.json(result);
@@ -426,7 +426,7 @@ router.post('/hangup', authMiddleware, async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       io.emit('agent:status', { id: req.agent.id, status: 'available' });
-      io.emit('call:ended', { conferenceName });
+      io.to(`agent:${req.agent.id}`).emit('call:ended', { conferenceName });
     }
 
     res.json({ ok: true });

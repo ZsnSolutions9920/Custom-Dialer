@@ -49,6 +49,36 @@ router.post('/voice', validateTwilio, async (req, res) => {
         conferenceName
       );
 
+      // Track the active call and log BEFORE sending TwiML so the record
+      // exists when the conference-start webhook fires
+      if (agent) {
+        await callService.createActiveCall({
+          callSid: CallSid,
+          conferenceName,
+          agentId: agent.id,
+          direction: 'outbound',
+          from: agentPhone,
+          to: To,
+          status: 'in-progress',
+        });
+
+        await callService.createCallLog({
+          callSid: CallSid,
+          direction: 'outbound',
+          agentId: agent.id,
+          from: agentPhone,
+          to: To,
+          status: 'initiated',
+        });
+
+        await agentService.updateStatus(agent.id, 'on_call');
+
+        const io = req.app.get('io');
+        if (io) {
+          io.emit('agent:status', { id: agent.id, status: 'on_call' });
+        }
+      }
+
       // Dial the external number into the conference via REST API
       const twilioClient = require('../services/twilioClient');
       twilioClient.conferences(conferenceName)
@@ -64,33 +94,10 @@ router.post('/voice', validateTwilio, async (req, res) => {
         .then(async (participant) => {
           logger.info({ conferenceName, participantSid: participant.callSid }, 'External participant added');
 
-          // Track the active call
           if (agent) {
-            await callService.createActiveCall({
-              callSid: CallSid,
-              conferenceName,
-              agentId: agent.id,
-              direction: 'outbound',
-              from: agentPhone,
-              to: To,
-              status: 'in-progress',
-            });
-
-            await callService.createCallLog({
-              callSid: CallSid,
-              direction: 'outbound',
-              agentId: agent.id,
-              from: agentPhone,
-              to: To,
-              status: 'initiated',
-            });
-
-            await agentService.updateStatus(agent.id, 'on_call');
-
             const io = req.app.get('io');
             if (io) {
-              io.emit('agent:status', { id: agent.id, status: 'on_call' });
-              io.emit('call:outbound', {
+              io.to(`agent:${agent.id}`).emit('call:outbound', {
                 callSid: CallSid,
                 conferenceName,
                 agentId: agent.id,
@@ -165,13 +172,21 @@ router.post('/voice', validateTwilio, async (req, res) => {
         agentId: ownerAgent ? ownerAgent.id : undefined,
       });
 
-      // Notify agents of incoming call via Socket.IO
+      // Notify the relevant agent(s) of incoming call via Socket.IO
       const io = req.app.get('io');
       if (io) {
-        io.emit('call:incoming', {
-          callSid: CallSid,
-          from: From,
-        });
+        if (ownerAgent) {
+          io.to(`agent:${ownerAgent.id}`).emit('call:incoming', {
+            callSid: CallSid,
+            from: From,
+          });
+        } else {
+          // Shared number — notify all agents
+          io.emit('call:incoming', {
+            callSid: CallSid,
+            from: From,
+          });
+        }
       }
 
       res.type('text/xml');
@@ -258,7 +273,7 @@ router.post('/conference-status', validateTwilio, async (req, res) => {
         });
 
         if (io) {
-          io.emit('call:conference-started', {
+          io.to(`agent:${activeCall.agent_id}`).emit('call:conference-started', {
             conferenceSid: ConferenceSid,
             conferenceName: FriendlyName,
           });
@@ -267,14 +282,16 @@ router.post('/conference-status', validateTwilio, async (req, res) => {
     }
 
     if (StatusCallbackEvent === 'participant-join') {
-      if (io) {
-        io.emit('call:participant-joined', { conferenceSid: ConferenceSid, callSid: CallSid, conferenceName: FriendlyName });
+      const activeCall = await callService.getActiveCallByConference(FriendlyName);
+      if (io && activeCall) {
+        io.to(`agent:${activeCall.agent_id}`).emit('call:participant-joined', { conferenceSid: ConferenceSid, callSid: CallSid, conferenceName: FriendlyName });
       }
     }
 
     if (StatusCallbackEvent === 'participant-leave') {
-      if (io) {
-        io.emit('call:participant-left', { conferenceSid: ConferenceSid, callSid: CallSid, conferenceName: FriendlyName });
+      const activeCall = await callService.getActiveCallByConference(FriendlyName);
+      if (io && activeCall) {
+        io.to(`agent:${activeCall.agent_id}`).emit('call:participant-left', { conferenceSid: ConferenceSid, callSid: CallSid, conferenceName: FriendlyName });
       }
     }
 
@@ -305,8 +322,11 @@ router.post('/conference-status', validateTwilio, async (req, res) => {
         }
       }
 
-      if (io) {
-        io.emit('call:ended', { conferenceSid: ConferenceSid, conferenceName: FriendlyName });
+      // Notify the agent(s) involved that the call ended
+      for (const log of rows) {
+        if (log.agent_id && io) {
+          io.to(`agent:${log.agent_id}`).emit('call:ended', { conferenceSid: ConferenceSid, conferenceName: FriendlyName });
+        }
       }
 
       // Fetch recording from Twilio API after a delay (recording takes time to process)
