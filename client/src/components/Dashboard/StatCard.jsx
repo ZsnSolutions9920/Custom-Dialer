@@ -1,12 +1,15 @@
-export default function StatCard({ icon, label, value }) {
+export default function StatCard({ icon, label, value, subtitle }) {
   return (
-    <div className="bg-white rounded-xl shadow-card border border-gray-100 p-5 flex items-center gap-4">
-      <div className="w-12 h-12 rounded-lg bg-brand-100 text-brand-600 flex items-center justify-center text-xl flex-shrink-0">
-        {icon}
-      </div>
-      <div>
-        <p className="text-sm text-gray-500 font-medium">{label}</p>
-        <p className="text-2xl font-bold text-gray-800">{value}</p>
+    <div className="bg-white rounded-2xl shadow-card border border-gray-100/80 p-6 hover:shadow-card-hover transition-all duration-300 group">
+      <div className="flex items-start justify-between">
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-gray-400 uppercase tracking-wide">{label}</p>
+          <p className="text-3xl font-bold text-gray-800 tracking-tight">{value}</p>
+          {subtitle && <p className="text-xs text-gray-400">{subtitle}</p>}
+        </div>
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform duration-300">
+          {icon}
+        </div>
       </div>
     </div>
   );
