@@ -1,6 +1,6 @@
 import api from './client';
 
-export const getCallLogs = (page = 1, limit = 50, filters = {}) =>
+export const getCallLogs = (page = 1, limit = 20, filters = {}) =>
   api.get('/calls', { params: { page, limit, ...filters } }).then((r) => r.data);
 
 export const getCallStats = (days = 7, agentId = null) =>

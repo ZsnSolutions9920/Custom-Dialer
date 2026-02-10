@@ -119,7 +119,7 @@ router.patch('/:id/notes', authMiddleware, async (req, res) => {
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 50;
+    const limit = parseInt(req.query.limit, 10) || 20;
     const { search, direction, status, dateFrom, dateTo, agentId } = req.query;
     const result = await callService.getCallLogs({ page, limit, search, direction, status, dateFrom, dateTo, agentId });
 

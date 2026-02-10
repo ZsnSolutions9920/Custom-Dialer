@@ -74,7 +74,7 @@ async function updateCallLog(callSid, updates) {
   return rows[0] || null;
 }
 
-async function getCallLogs({ page = 1, limit = 50, search, direction, status, dateFrom, dateTo, agentId }) {
+async function getCallLogs({ page = 1, limit = 20, search, direction, status, dateFrom, dateTo, agentId }) {
   const conditions = [];
   const values = [];
   let idx = 1;

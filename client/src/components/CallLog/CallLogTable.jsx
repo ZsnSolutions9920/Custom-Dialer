@@ -3,13 +3,13 @@ import { getCallLogs } from '../../api/calls';
 import CallLogRow from './CallLogRow';
 
 export default function CallLogTable({ filters = {} }) {
-  const [data, setData] = useState({ calls: [], total: 0, page: 1, limit: 50 });
+  const [data, setData] = useState({ calls: [], total: 0, page: 1, limit: 20 });
   const [loading, setLoading] = useState(true);
 
   const fetchLogs = async (page = 1) => {
     setLoading(true);
     try {
-      const result = await getCallLogs(page, 50, filters);
+      const result = await getCallLogs(page, 20, filters);
       setData(result);
     } catch (err) {
       console.error('Failed to load call logs:', err);

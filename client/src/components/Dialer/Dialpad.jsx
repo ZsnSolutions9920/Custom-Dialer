@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useCall } from '../../context/CallContext';
+import { getTimezoneForNumber } from '../../utils/usAreaCodeTimezones';
 
 const keys = [
   ['1', '2', '3'],
@@ -11,8 +12,18 @@ const keys = [
 export default function Dialpad() {
   const { makeCall, callState, sendDTMF } = useCall();
   const [number, setNumber] = useState('');
+  const [tick, setTick] = useState(0);
 
   const inCall = callState !== 'idle';
+
+  const tzInfo = useMemo(() => getTimezoneForNumber(number), [number, tick]);
+
+  // Tick every second to keep displayed time live
+  useEffect(() => {
+    if (!tzInfo) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [tzInfo?.timezone]);
 
   const handleKey = (key) => {
     if (inCall) {
@@ -48,6 +59,16 @@ export default function Dialpad() {
               &larr;
             </button>
           )}
+        </div>
+      )}
+
+      {!inCall && tzInfo && (
+        <div className="mb-3 flex items-center justify-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="10" strokeWidth="2" />
+            <path strokeWidth="2" strokeLinecap="round" d="M12 6v6l4 2" />
+          </svg>
+          <span>{tzInfo.localTime}</span>
         </div>
       )}
 
