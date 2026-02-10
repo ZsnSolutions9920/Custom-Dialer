@@ -23,7 +23,9 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-page">
       <div className="bg-white p-8 rounded-xl shadow-card border border-gray-100 w-full max-w-sm">
-        <h1 className="text-2xl font-bold text-center mb-6 text-brand-700">Sales Dialer</h1>
+        <div className="flex justify-center mb-6">
+          <img src="/logo.png" alt="Logo" className="h-10 object-contain" />
+        </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-red-50 text-red-600 p-3 rounded text-sm">{error}</div>

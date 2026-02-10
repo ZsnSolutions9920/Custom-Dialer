@@ -11,8 +11,8 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-gradient-to-b from-brand-900 to-brand-950 text-white flex flex-col min-h-screen">
       <div className="p-5 border-b border-white/10">
-        <h1 className="text-lg font-bold tracking-tight">Sales Dialer</h1>
-        <p className="text-sm text-brand-200 mt-1 font-medium">{agent?.displayName}</p>
+        <img src="/logo.png" alt="Logo" className="h-8 object-contain" />
+        <p className="text-sm text-brand-200 mt-2 font-medium">{agent?.displayName}</p>
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1">
