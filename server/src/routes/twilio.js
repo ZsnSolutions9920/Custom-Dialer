@@ -26,7 +26,7 @@ router.post('/voice', validateTwilio, async (req, res) => {
         {
           startConferenceOnEnter: true,
           endConferenceOnExit: true,
-          record: 'record-from-answer',
+          record: 'record-from-start',
           recordingStatusCallback: `${config.serverBaseUrl}/api/twilio/recording-status`,
           recordingStatusCallbackEvent: 'completed',
           statusCallback: `${config.serverBaseUrl}/api/twilio/conference-status`,
@@ -116,7 +116,7 @@ router.post('/voice', validateTwilio, async (req, res) => {
       const dial = twiml.dial({
         callerId: From,
         timeout: 30,
-        record: true,
+        record: 'record-from-answer',
         recordingStatusCallback: `${config.serverBaseUrl}/api/twilio/recording-status`,
         recordingStatusCallbackEvent: 'completed',
         action: `${config.serverBaseUrl}/api/twilio/voice-action`,
