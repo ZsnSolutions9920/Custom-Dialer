@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const http = require('http');
+const path = require('path');
 const config = require('./config');
 const logger = require('./utils/logger');
 const { setupSocket } = require('./socket');
@@ -31,9 +32,18 @@ app.use('/api/token', tokenRoutes);
 app.use('/api/calls', callRoutes);
 app.use('/api/twilio', twilioRoutes);
 
+// Serve React frontend in production
+const clientDist = path.join(__dirname, '../../client/dist');
+app.use(express.static(clientDist));
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// SPA fallback — serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientDist, 'index.html'));
 });
 
 server.listen(config.port, () => {
