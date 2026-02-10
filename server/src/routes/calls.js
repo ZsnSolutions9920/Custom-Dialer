@@ -1,0 +1,211 @@
+const express = require('express');
+const authMiddleware = require('../middleware/auth');
+const callService = require('../services/callService');
+const agentService = require('../services/agentService');
+const twilioClient = require('../services/twilioClient');
+const config = require('../config');
+const logger = require('../utils/logger');
+
+const router = express.Router();
+
+// Get call logs with pagination
+router.get('/', authMiddleware, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 50;
+    const result = await callService.getCallLogs({ page, limit });
+    res.json(result);
+  } catch (err) {
+    logger.error(err, 'Error fetching call logs');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Toggle hold
+router.post('/hold', authMiddleware, async (req, res) => {
+  try {
+    const { conferenceSid, participantCallSid, hold } = req.body;
+    if (!conferenceSid || !participantCallSid || typeof hold !== 'boolean') {
+      return res.status(400).json({ error: 'conferenceSid, participantCallSid, and hold (boolean) are required' });
+    }
+
+    const result = await callService.holdParticipant(conferenceSid, participantCallSid, hold);
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('call:hold', { conferenceSid, participantCallSid, hold });
+    }
+
+    res.json(result);
+  } catch (err) {
+    logger.error(err, 'Error toggling hold');
+    res.status(500).json({ error: 'Failed to toggle hold' });
+  }
+});
+
+// Initiate transfer (warm or cold)
+router.post('/transfer', authMiddleware, async (req, res) => {
+  try {
+    const { conferenceName, targetAgentId, type } = req.body;
+    if (!conferenceName || !targetAgentId || !['warm', 'cold'].includes(type)) {
+      return res.status(400).json({ error: 'conferenceName, targetAgentId, and type (warm/cold) are required' });
+    }
+
+    const targetAgent = await agentService.findById(targetAgentId);
+    if (!targetAgent) {
+      return res.status(404).json({ error: 'Target agent not found' });
+    }
+
+    // Add target agent to conference by calling their Twilio client
+    const participant = await twilioClient.conferences(conferenceName)
+      .participants
+      .create({
+        to: `client:${targetAgent.twilio_identity}`,
+        from: config.twilio.phoneNumber,
+        endConferenceOnExit: false,
+      });
+
+    logger.info({ conferenceName, targetAgent: targetAgent.twilio_identity, type }, 'Transfer initiated');
+
+    // For cold transfer, remove the original agent immediately
+    if (type === 'cold') {
+      const activeCall = await callService.getActiveCallByConference(conferenceName);
+      if (activeCall) {
+        // Find and remove the original agent from conference
+        const conferences = await twilioClient.conferences.list({
+          friendlyName: conferenceName,
+          status: 'in-progress',
+        });
+        if (conferences.length > 0) {
+          const participants = await twilioClient.conferences(conferences[0].sid).participants.list();
+          for (const p of participants) {
+            // Remove the originating agent's leg (not the new agent, not the external caller)
+            if (p.callSid === activeCall.call_sid) {
+              await twilioClient.conferences(conferences[0].sid).participants(p.callSid).remove();
+              break;
+            }
+          }
+        }
+
+        // Update tracking
+        await agentService.updateStatus(req.agent.id, 'available');
+        await callService.removeActiveCall(activeCall.call_sid);
+
+        // Create new active call for target agent
+        await callService.createActiveCall({
+          callSid: participant.callSid,
+          conferenceName,
+          agentId: targetAgent.id,
+          direction: 'transfer',
+          from: activeCall.from_number,
+          to: activeCall.to_number,
+          status: 'in-progress',
+        });
+
+        await agentService.updateStatus(targetAgent.id, 'on_call');
+
+        // Update call log
+        await callService.updateCallLog(activeCall.call_sid, {
+          transferredTo: targetAgent.id,
+          transferredFrom: req.agent.id,
+        });
+      }
+
+      const io = req.app.get('io');
+      if (io) {
+        io.emit('agent:status', { id: req.agent.id, status: 'available' });
+        io.emit('agent:status', { id: targetAgent.id, status: 'on_call' });
+      }
+    }
+
+    res.json({ ok: true, participantCallSid: participant.callSid, type });
+  } catch (err) {
+    logger.error(err, 'Error initiating transfer');
+    res.status(500).json({ error: 'Failed to initiate transfer' });
+  }
+});
+
+// Complete warm transfer (original agent leaves)
+router.post('/transfer/complete', authMiddleware, async (req, res) => {
+  try {
+    const { conferenceName, targetAgentId } = req.body;
+    if (!conferenceName) {
+      return res.status(400).json({ error: 'conferenceName is required' });
+    }
+
+    const activeCall = await callService.getActiveCallByConference(conferenceName);
+    if (!activeCall) {
+      return res.status(404).json({ error: 'Active call not found' });
+    }
+
+    // Find and remove the original agent from conference
+    const conferences = await twilioClient.conferences.list({
+      friendlyName: conferenceName,
+      status: 'in-progress',
+    });
+
+    if (conferences.length > 0) {
+      const participants = await twilioClient.conferences(conferences[0].sid).participants.list();
+      for (const p of participants) {
+        if (p.callSid === activeCall.call_sid) {
+          await twilioClient.conferences(conferences[0].sid).participants(p.callSid).remove();
+          break;
+        }
+      }
+    }
+
+    await agentService.updateStatus(req.agent.id, 'available');
+    await callService.removeActiveCall(activeCall.call_sid);
+
+    if (targetAgentId) {
+      const targetAgent = await agentService.findById(targetAgentId);
+      if (targetAgent) {
+        await agentService.updateStatus(targetAgent.id, 'on_call');
+        await callService.updateCallLog(activeCall.call_sid, {
+          transferredTo: targetAgent.id,
+          transferredFrom: req.agent.id,
+        });
+      }
+    }
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('agent:status', { id: req.agent.id, status: 'available' });
+      if (targetAgentId) {
+        io.emit('agent:status', { id: parseInt(targetAgentId, 10), status: 'on_call' });
+      }
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error(err, 'Error completing transfer');
+    res.status(500).json({ error: 'Failed to complete transfer' });
+  }
+});
+
+// Hangup call / end conference
+router.post('/hangup', authMiddleware, async (req, res) => {
+  try {
+    const { conferenceName } = req.body;
+    if (!conferenceName) {
+      return res.status(400).json({ error: 'conferenceName is required' });
+    }
+
+    await callService.hangupConference(conferenceName);
+    await callService.removeActiveCallsByConference(conferenceName);
+    await agentService.updateStatus(req.agent.id, 'available');
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('agent:status', { id: req.agent.id, status: 'available' });
+      io.emit('call:ended', { conferenceName });
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error(err, 'Error hanging up');
+    res.status(500).json({ error: 'Failed to hang up' });
+  }
+});
+
+module.exports = router;
