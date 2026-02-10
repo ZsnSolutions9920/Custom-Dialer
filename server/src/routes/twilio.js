@@ -19,10 +19,18 @@ router.post('/voice', validateTwilio, async (req, res) => {
     // Find the agent by their Twilio identity (needed for both outbound caller ID and tracking)
     const fromIdentity = From ? From.replace('client:', '') : null;
     const agent = fromIdentity ? await agentService.findByIdentity(fromIdentity) : null;
-    const agentPhone = agent?.twilio_phone_number || config.twilio.phoneNumber;
+    const agentPhone = agent?.twilio_phone_number || null;
 
     // Outbound call from agent (To is a phone number)
     if (To && !To.startsWith('client:') && To !== agentPhone && To !== config.twilio.phoneNumber) {
+      // Block outbound calls if agent has no assigned Twilio number
+      if (!agentPhone) {
+        logger.warn({ agentId: agent?.id, fromIdentity }, 'Agent has no Twilio phone number assigned');
+        twiml.say('You do not have a phone number assigned. Please contact your administrator.');
+        twiml.hangup();
+        res.type('text/xml');
+        return res.send(twiml.toString());
+      }
       const conferenceName = `conf_${CallSid}`;
 
       // Put the agent into a conference

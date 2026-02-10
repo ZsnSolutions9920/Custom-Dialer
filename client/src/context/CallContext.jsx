@@ -134,11 +134,13 @@ export function CallProvider({ children }) {
     if (!socket) return;
 
     const onOutbound = (data) => {
+      if (data.agentId !== agent?.id) return;
       setConferenceName(data.conferenceName);
       setParticipantCallSid(data.participantCallSid);
     };
 
     const onConfStarted = (data) => {
+      if (conferenceName && data.conferenceName !== conferenceName) return;
       setConferenceSid(data.conferenceSid);
       if (!conferenceName) setConferenceName(data.conferenceName);
       setCallState('in-progress');
@@ -176,7 +178,7 @@ export function CallProvider({ children }) {
       socket.off('call:ended', onCallEnded);
       socket.off('call:hold', onHold);
     };
-  }, [socket, conferenceName, conferenceSid]);
+  }, [socket, agent, conferenceName, conferenceSid]);
 
   const resetCallState = useCallback(() => {
     setActiveCall(null);

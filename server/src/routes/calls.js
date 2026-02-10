@@ -230,6 +230,12 @@ router.post('/hold', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'conferenceSid, participantCallSid, and hold (boolean) are required' });
     }
 
+    // Verify the requesting agent owns this call
+    const activeCall = await callService.getActiveCallByAgent(req.agent.id);
+    if (!activeCall || activeCall.conference_sid !== conferenceSid) {
+      return res.status(403).json({ error: 'Not authorized to control this call' });
+    }
+
     const result = await callService.holdParticipant(conferenceSid, participantCallSid, hold);
 
     const io = req.app.get('io');
@@ -252,9 +258,19 @@ router.post('/transfer', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'conferenceName, targetAgentId, and type (warm/cold) are required' });
     }
 
+    // Verify the requesting agent owns this call
+    const activeCall = await callService.getActiveCallByConference(conferenceName);
+    if (activeCall && activeCall.agent_id !== req.agent.id) {
+      return res.status(403).json({ error: 'Not authorized to control this call' });
+    }
+
     const targetAgent = await agentService.findById(targetAgentId);
     if (!targetAgent) {
       return res.status(404).json({ error: 'Target agent not found' });
+    }
+
+    if (!req.agent.twilioPhoneNumber) {
+      return res.status(400).json({ error: 'No Twilio phone number assigned to your account' });
     }
 
     // Add target agent to conference by calling their Twilio client
@@ -262,7 +278,7 @@ router.post('/transfer', authMiddleware, async (req, res) => {
       .participants
       .create({
         to: `client:${targetAgent.twilio_identity}`,
-        from: req.agent.twilioPhoneNumber || config.twilio.phoneNumber,
+        from: req.agent.twilioPhoneNumber,
         endConferenceOnExit: false,
       });
 
@@ -339,6 +355,11 @@ router.post('/transfer/complete', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Active call not found' });
     }
 
+    // Verify the requesting agent owns this call
+    if (activeCall.agent_id !== req.agent.id) {
+      return res.status(403).json({ error: 'Not authorized to control this call' });
+    }
+
     // Find and remove the original agent from conference
     const conferences = await twilioClient.conferences.list({
       friendlyName: conferenceName,
@@ -390,6 +411,12 @@ router.post('/hangup', authMiddleware, async (req, res) => {
     const { conferenceName } = req.body;
     if (!conferenceName) {
       return res.status(400).json({ error: 'conferenceName is required' });
+    }
+
+    // Verify the requesting agent owns this call
+    const activeCall = await callService.getActiveCallByConference(conferenceName);
+    if (activeCall && activeCall.agent_id !== req.agent.id) {
+      return res.status(403).json({ error: 'Not authorized to control this call' });
     }
 
     await callService.hangupConference(conferenceName);
