@@ -5,7 +5,7 @@ const { Pool } = require('pg');
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 const agents = [
-  { username: 'agent1', password: 'password1', display_name: 'Alice Johnson', twilio_identity: 'agent_alice', twilio_phone_number: null },
+  { username: 'agent1', password: 'password1', display_name: 'Alice Johnson', twilio_identity: 'agent_alice', twilio_phone_number: '+18787887070' },
   { username: 'agent2', password: 'password2', display_name: 'Bob Smith', twilio_identity: 'agent_bob', twilio_phone_number: null },
   { username: 'agent3', password: 'password3', display_name: 'Carol Davis', twilio_identity: 'agent_carol', twilio_phone_number: null },
   { username: 'agent4', password: 'password4', display_name: 'Dave Wilson', twilio_identity: 'agent_dave', twilio_phone_number: null },
