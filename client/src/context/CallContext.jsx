@@ -72,14 +72,6 @@ export function CallProvider({ children }) {
       });
 
       await device.register();
-
-      // Explicitly set the audio output device to ensure incoming audio plays through the speaker.
-      // Without this, the browser may not route received audio to the speaker due to
-      // autoplay policies or missing setSinkId calls.
-      device.audio.speakerDevices.set('default').catch((err) => {
-        console.warn('Could not set speaker device:', err);
-      });
-
       deviceRef.current = device;
     } catch (err) {
       console.error('Failed to init Twilio Device:', err);
