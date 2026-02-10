@@ -259,9 +259,12 @@ router.post('/conference-status', validateTwilio, async (req, res) => {
       );
       for (const log of rows) {
         if (!log.ended_at) {
+          const now = new Date();
+          const durationSeconds = Math.round((now - new Date(log.started_at)) / 1000);
           await callService.updateCallLog(log.call_sid, {
             status: 'completed',
-            endedAt: new Date(),
+            endedAt: now,
+            durationSeconds,
           });
         }
         if (log.agent_id) {
@@ -293,16 +296,34 @@ router.post('/hold-music', validateTwilio, (req, res) => {
 
 // Recording status callback - Twilio calls this when a recording is ready
 router.post('/recording-status', validateTwilio, async (req, res) => {
-  const { RecordingSid, RecordingUrl, CallSid } = req.body;
+  const { RecordingSid, RecordingUrl, CallSid, ConferenceSid } = req.body;
 
-  logger.info({ RecordingSid, RecordingUrl, CallSid }, 'Recording status callback');
+  logger.info({ RecordingSid, RecordingUrl, CallSid, ConferenceSid }, 'Recording status callback');
 
   try {
-    if (RecordingSid && RecordingUrl && CallSid) {
-      await callService.updateCallLog(CallSid, {
-        recordingSid: RecordingSid,
-        recordingUrl: RecordingUrl,
-      });
+    if (!RecordingSid || !RecordingUrl) {
+      return res.sendStatus(200);
+    }
+
+    const pool = require('../db/pool');
+
+    // For inbound calls (Dial recording) — match by CallSid
+    // For outbound calls (Conference recording) — match by ConferenceSid
+    let updated = false;
+
+    if (CallSid) {
+      const { rowCount } = await pool.query(
+        'UPDATE call_logs SET recording_sid = $1, recording_url = $2 WHERE call_sid = $3 AND recording_sid IS NULL',
+        [RecordingSid, RecordingUrl, CallSid]
+      );
+      if (rowCount > 0) updated = true;
+    }
+
+    if (!updated && ConferenceSid) {
+      await pool.query(
+        'UPDATE call_logs SET recording_sid = $1, recording_url = $2 WHERE conference_sid = $3 AND recording_sid IS NULL',
+        [RecordingSid, RecordingUrl, ConferenceSid]
+      );
     }
   } catch (err) {
     logger.error(err, 'Error handling recording status');
