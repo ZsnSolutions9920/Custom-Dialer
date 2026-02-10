@@ -25,14 +25,20 @@ export function CallProvider({ children }) {
   const [callTimer, setCallTimer] = useState(0);
   const timerRef = useRef(null);
   const [transferInProgress, setTransferInProgress] = useState(null);
+  const initPendingRef = useRef(false);
 
-  // Initialize Twilio Device
+  // Initialize Twilio Device — must be called during a user gesture (click)
+  // so the browser allows AudioContext to start
   const initDevice = useCallback(async () => {
     if (deviceRef.current) {
       deviceRef.current.destroy();
     }
 
     try {
+      // Request mic permission to populate audio device list
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
+
       const { token } = await callsApi.getTwilioToken();
       const device = new Device(token, {
         codecPreferences: ['opus', 'pcmu'],
@@ -78,11 +84,25 @@ export function CallProvider({ children }) {
     }
   }, []);
 
+  // Wait for a user gesture (click) before initializing the Device.
+  // Browsers block AudioContext creation unless it happens during a user interaction.
   useEffect(() => {
-    if (isAuthenticated) {
-      initDevice();
-    }
+    if (!isAuthenticated) return;
+
+    initPendingRef.current = true;
+
+    const handleClick = () => {
+      if (initPendingRef.current) {
+        initPendingRef.current = false;
+        initDevice();
+      }
+    };
+
+    document.addEventListener('click', handleClick, { once: true });
+
     return () => {
+      initPendingRef.current = false;
+      document.removeEventListener('click', handleClick);
       if (deviceRef.current) {
         deviceRef.current.destroy();
         deviceRef.current = null;
