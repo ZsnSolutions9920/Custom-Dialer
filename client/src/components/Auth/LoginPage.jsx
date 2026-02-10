@@ -22,9 +22,9 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-page">
-      <div className="bg-white p-8 rounded-xl shadow-card border border-gray-100 w-full max-w-sm">
+      <div className="bg-white p-6 sm:p-8 rounded-xl shadow-card border border-gray-100 w-full max-w-sm mx-4 sm:mx-0">
         <div className="flex justify-center mb-6">
-          <img src="/logo.png" alt="Logo" className="h-10 object-contain" />
+          <img src="/logo.png" alt="Logo" className="h-14 object-contain" />
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
