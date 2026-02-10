@@ -278,6 +278,31 @@ router.post('/conference-status', validateTwilio, async (req, res) => {
       if (io) {
         io.emit('call:ended', { conferenceSid: ConferenceSid, conferenceName: FriendlyName });
       }
+
+      // Fetch recording from Twilio API after a delay (recording takes time to process)
+      const callSidsToCheck = rows.map((log) => log.call_sid).filter(Boolean);
+      setTimeout(async () => {
+        try {
+          const twilioClient = require('../services/twilioClient');
+          const recordings = await twilioClient.recordings.list({
+            conferenceSid: ConferenceSid,
+            limit: 1,
+          });
+          if (recordings.length > 0) {
+            const rec = recordings[0];
+            const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${config.twilio.accountSid}/Recordings/${rec.sid}`;
+            for (const callSid of callSidsToCheck) {
+              await callService.updateCallLog(callSid, {
+                recordingSid: rec.sid,
+                recordingUrl,
+              });
+            }
+            logger.info({ conferenceSid: ConferenceSid, recordingSid: rec.sid }, 'Recording saved from API');
+          }
+        } catch (err) {
+          logger.error(err, 'Failed to fetch recording from Twilio API');
+        }
+      }, 15000);
     }
   } catch (err) {
     logger.error(err, 'Error handling conference status');

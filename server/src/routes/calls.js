@@ -14,6 +14,35 @@ router.get('/', authMiddleware, async (req, res) => {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 50;
     const result = await callService.getCallLogs({ page, limit });
+
+    // Backfill missing recordings from Twilio API
+    const pool = require('../db/pool');
+    for (const call of result.calls) {
+      if (call.status === 'completed' && !call.recording_url && (call.conference_sid || call.call_sid)) {
+        try {
+          let recordings = [];
+          if (call.conference_sid) {
+            recordings = await twilioClient.recordings.list({ conferenceSid: call.conference_sid, limit: 1 });
+          }
+          if (recordings.length === 0 && call.call_sid) {
+            recordings = await twilioClient.recordings.list({ callSid: call.call_sid, limit: 1 });
+          }
+          if (recordings.length > 0) {
+            const rec = recordings[0];
+            const recordingUrl = `https://api.twilio.com/2010-04-01/Accounts/${config.twilio.accountSid}/Recordings/${rec.sid}`;
+            await pool.query(
+              'UPDATE call_logs SET recording_sid = $1, recording_url = $2 WHERE id = $3',
+              [rec.sid, recordingUrl, call.id]
+            );
+            call.recording_sid = rec.sid;
+            call.recording_url = recordingUrl;
+          }
+        } catch (err) {
+          logger.error(err, 'Failed to backfill recording for call ' + call.id);
+        }
+      }
+    }
+
     res.json(result);
   } catch (err) {
     logger.error(err, 'Error fetching call logs');
@@ -24,17 +53,43 @@ router.get('/', authMiddleware, async (req, res) => {
 // Download call recording (proxied through server to avoid exposing Twilio credentials)
 router.get('/:id/recording', authMiddleware, async (req, res) => {
   try {
-    const { rows } = await require('../db/pool').query(
-      'SELECT recording_sid, recording_url FROM call_logs WHERE id = $1',
+    const pool = require('../db/pool');
+    const { rows } = await pool.query(
+      'SELECT call_sid, conference_sid, recording_sid, recording_url FROM call_logs WHERE id = $1',
       [req.params.id]
     );
 
-    if (!rows[0] || !rows[0].recording_url) {
-      return res.status(404).json({ error: 'Recording not found' });
+    if (!rows[0]) {
+      return res.status(404).json({ error: 'Call not found' });
     }
 
-    const recordingUrl = `${rows[0].recording_url}.mp3`;
-    const response = await fetch(recordingUrl, {
+    let { recording_sid, recording_url } = rows[0];
+
+    // If not cached in DB, fetch from Twilio API
+    if (!recording_url) {
+      let recordings = [];
+      if (rows[0].conference_sid) {
+        recordings = await twilioClient.recordings.list({ conferenceSid: rows[0].conference_sid, limit: 1 });
+      }
+      if (recordings.length === 0 && rows[0].call_sid) {
+        recordings = await twilioClient.recordings.list({ callSid: rows[0].call_sid, limit: 1 });
+      }
+
+      if (recordings.length === 0) {
+        return res.status(404).json({ error: 'Recording not found' });
+      }
+
+      recording_sid = recordings[0].sid;
+      recording_url = `https://api.twilio.com/2010-04-01/Accounts/${config.twilio.accountSid}/Recordings/${recording_sid}`;
+
+      // Cache it in the DB for next time
+      await pool.query(
+        'UPDATE call_logs SET recording_sid = $1, recording_url = $2 WHERE id = $3',
+        [recording_sid, recording_url, req.params.id]
+      );
+    }
+
+    const response = await fetch(`${recording_url}.mp3`, {
       headers: {
         Authorization: 'Basic ' + Buffer.from(
           `${config.twilio.accountSid}:${config.twilio.authToken}`
@@ -48,7 +103,7 @@ router.get('/:id/recording', authMiddleware, async (req, res) => {
 
     res.set({
       'Content-Type': 'audio/mpeg',
-      'Content-Disposition': `attachment; filename="recording-${rows[0].recording_sid}.mp3"`,
+      'Content-Disposition': `attachment; filename="recording-${recording_sid}.mp3"`,
     });
 
     const { Readable } = require('stream');
