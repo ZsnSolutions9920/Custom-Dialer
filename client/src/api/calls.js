@@ -17,3 +17,5 @@ export const hangup = (conferenceName) =>
 
 export const getTwilioToken = () =>
   api.get('/token').then((r) => r.data);
+
+export const getRecordingUrl = (callId) => `/api/calls/${callId}/recording`;

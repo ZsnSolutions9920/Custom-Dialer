@@ -37,18 +37,19 @@ export default function CallLogTable() {
               <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
               <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Duration</th>
               <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
+              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Recording</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {loading ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                   Loading...
                 </td>
               </tr>
             ) : data.calls.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                   No call history yet.
                 </td>
               </tr>

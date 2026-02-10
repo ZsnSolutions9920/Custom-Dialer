@@ -21,6 +21,44 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+// Download call recording (proxied through server to avoid exposing Twilio credentials)
+router.get('/:id/recording', authMiddleware, async (req, res) => {
+  try {
+    const { rows } = await require('../db/pool').query(
+      'SELECT recording_sid, recording_url FROM call_logs WHERE id = $1',
+      [req.params.id]
+    );
+
+    if (!rows[0] || !rows[0].recording_url) {
+      return res.status(404).json({ error: 'Recording not found' });
+    }
+
+    const recordingUrl = `${rows[0].recording_url}.mp3`;
+    const response = await fetch(recordingUrl, {
+      headers: {
+        Authorization: 'Basic ' + Buffer.from(
+          `${config.twilio.accountSid}:${config.twilio.authToken}`
+        ).toString('base64'),
+      },
+    });
+
+    if (!response.ok) {
+      return res.status(502).json({ error: 'Failed to fetch recording from Twilio' });
+    }
+
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Content-Disposition': `attachment; filename="recording-${rows[0].recording_sid}.mp3"`,
+    });
+
+    const { Readable } = require('stream');
+    Readable.fromWeb(response.body).pipe(res);
+  } catch (err) {
+    logger.error(err, 'Error downloading recording');
+    res.status(500).json({ error: 'Failed to download recording' });
+  }
+});
+
 // Toggle hold
 router.post('/hold', authMiddleware, async (req, res) => {
   try {

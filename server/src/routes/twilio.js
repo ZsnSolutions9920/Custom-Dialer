@@ -26,6 +26,9 @@ router.post('/voice', validateTwilio, async (req, res) => {
         {
           startConferenceOnEnter: true,
           endConferenceOnExit: true,
+          record: 'record-from-answer',
+          recordingStatusCallback: `${config.serverBaseUrl}/api/twilio/recording-status`,
+          recordingStatusCallbackEvent: 'completed',
           statusCallback: `${config.serverBaseUrl}/api/twilio/conference-status`,
           statusCallbackEvent: 'start end join leave',
           waitUrl: `${config.serverBaseUrl}/api/twilio/hold-music`,
@@ -113,6 +116,9 @@ router.post('/voice', validateTwilio, async (req, res) => {
       const dial = twiml.dial({
         callerId: From,
         timeout: 30,
+        record: true,
+        recordingStatusCallback: `${config.serverBaseUrl}/api/twilio/recording-status`,
+        recordingStatusCallbackEvent: 'completed',
         action: `${config.serverBaseUrl}/api/twilio/voice-action`,
       });
 
@@ -283,6 +289,26 @@ router.post('/hold-music', validateTwilio, (req, res) => {
   twiml.play({ loop: 0 }, 'https://api.twilio.com/cowbell.mp3');
   res.type('text/xml');
   res.send(twiml.toString());
+});
+
+// Recording status callback - Twilio calls this when a recording is ready
+router.post('/recording-status', validateTwilio, async (req, res) => {
+  const { RecordingSid, RecordingUrl, CallSid } = req.body;
+
+  logger.info({ RecordingSid, RecordingUrl, CallSid }, 'Recording status callback');
+
+  try {
+    if (RecordingSid && RecordingUrl && CallSid) {
+      await callService.updateCallLog(CallSid, {
+        recordingSid: RecordingSid,
+        recordingUrl: RecordingUrl,
+      });
+    }
+  } catch (err) {
+    logger.error(err, 'Error handling recording status');
+  }
+
+  res.sendStatus(200);
 });
 
 module.exports = router;
