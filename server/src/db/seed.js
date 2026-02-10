@@ -9,7 +9,7 @@ const agents = [
   { username: 'agent2', password: 'password2', display_name: 'Bob Smith', twilio_identity: 'agent_bob', twilio_phone_number: '+1XXXXXXXXXX' },
   { username: 'agent3', password: 'password3', display_name: 'Carol Davis', twilio_identity: 'agent_carol', twilio_phone_number: '+1XXXXXXXXXX' },
   { username: 'agent4', password: 'password4', display_name: 'Dave Wilson', twilio_identity: 'agent_dave', twilio_phone_number: '+1XXXXXXXXXX' },
-  { username: 'agent5', password: 'password5', display_name: 'Eve Martinez', twilio_identity: 'agent_eve', twilio_phone_number: '+18336144567' },
+  { username: 'agent5', password: 'password5', display_name: 'Eve Martinez', twilio_identity: 'agent_eve', twilio_phone_number: '+17209731230' },
 ];
 
 async function seed() {
