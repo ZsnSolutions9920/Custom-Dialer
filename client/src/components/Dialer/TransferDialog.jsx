@@ -28,9 +28,9 @@ export default function TransferDialog({ onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-semibold mb-4">Transfer Call</h3>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+        <h3 className="text-lg font-semibold mb-4 text-gray-800">Transfer Call</h3>
 
         {otherAgents.length === 0 ? (
           <p className="text-gray-500 text-sm">No other agents available.</p>
@@ -39,7 +39,7 @@ export default function TransferDialog({ onClose }) {
             {otherAgents.map((a) => (
               <div
                 key={a.id}
-                className="flex items-center justify-between p-3 border rounded-md"
+                className="flex items-center justify-between p-3 border border-gray-100 rounded-lg hover:bg-brand-50/50 transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <span
@@ -60,14 +60,14 @@ export default function TransferDialog({ onClose }) {
                   <button
                     onClick={() => handleTransfer(a.id, 'warm')}
                     disabled={transferring}
-                    className="px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50"
+                    className="px-3 py-1 text-xs bg-brand-100 text-brand-700 rounded-md hover:bg-brand-200 disabled:opacity-50 font-medium transition-colors"
                   >
                     Warm
                   </button>
                   <button
                     onClick={() => handleTransfer(a.id, 'cold')}
                     disabled={transferring}
-                    className="px-2 py-1 text-xs bg-orange-100 text-orange-700 rounded hover:bg-orange-200 disabled:opacity-50"
+                    className="px-3 py-1 text-xs bg-orange-100 text-orange-700 rounded-md hover:bg-orange-200 disabled:opacity-50 font-medium transition-colors"
                   >
                     Cold
                   </button>
@@ -79,7 +79,7 @@ export default function TransferDialog({ onClose }) {
 
         <button
           onClick={onClose}
-          className="mt-4 w-full px-4 py-2 text-sm bg-gray-200 rounded-md hover:bg-gray-300"
+          className="mt-4 w-full px-4 py-2.5 text-sm bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition-colors"
         >
           Cancel
         </button>

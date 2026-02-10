@@ -16,7 +16,7 @@ export default function StatusSelector() {
       <select
         value={currentStatus}
         onChange={(e) => setStatus(agent.id, e.target.value)}
-        className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow"
       >
         {statuses.map((s) => (
           <option key={s} value={s}>

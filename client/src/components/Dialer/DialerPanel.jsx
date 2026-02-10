@@ -6,8 +6,8 @@ export default function DialerPanel() {
   const { callState } = useCall();
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border p-6">
-      <h2 className="text-lg font-semibold mb-4 text-center">
+    <div className="card p-6">
+      <h2 className="text-lg font-semibold mb-4 text-center text-gray-800">
         {callState === 'idle' ? 'Make a Call' : 'Call Controls'}
       </h2>
       <Dialpad />

@@ -41,10 +41,10 @@ export default function Dialpad() {
             value={number}
             onChange={(e) => setNumber(e.target.value)}
             placeholder="+1 (555) 123-4567"
-            className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-center text-lg font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-center text-lg font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow"
           />
           {number && (
-            <button onClick={handleBackspace} className="text-gray-400 hover:text-gray-600 px-2 py-2">
+            <button onClick={handleBackspace} className="text-gray-400 hover:text-brand-500 px-2 py-2 transition-colors">
               &larr;
             </button>
           )}
@@ -57,7 +57,7 @@ export default function Dialpad() {
             <button
               key={key}
               onClick={() => handleKey(key)}
-              className="bg-gray-100 hover:bg-gray-200 rounded-lg py-3 text-xl font-medium transition-colors"
+              className="bg-gray-50 hover:bg-brand-50 hover:text-brand-600 active:bg-brand-100 rounded-xl py-3 text-xl font-medium transition-colors"
             >
               {key}
             </button>
@@ -69,7 +69,7 @@ export default function Dialpad() {
         <button
           onClick={handleDial}
           disabled={!number.trim()}
-          className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-lg transition-colors"
+          className="w-full bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 disabled:opacity-50 font-medium text-lg transition-colors shadow-sm"
         >
           Call
         </button>

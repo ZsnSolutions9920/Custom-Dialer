@@ -26,9 +26,9 @@ export default function ActiveCallBanner() {
   };
 
   return (
-    <div className={`${stateColors[callState] || 'bg-gray-600'} text-white px-4 py-2 flex items-center justify-between text-sm`}>
+    <div className={`${stateColors[callState] || 'bg-gray-600'} text-white px-6 py-3 flex items-center justify-between text-sm shadow-sm`}>
       <div className="flex items-center gap-3">
-        <span className="animate-pulse w-2 h-2 bg-white rounded-full" />
+        <span className="animate-pulse w-2.5 h-2.5 bg-white rounded-full" />
         <span className="font-medium">
           {callDirection === 'inbound' ? 'Inbound' : 'Outbound'}: {remoteNumber}
         </span>

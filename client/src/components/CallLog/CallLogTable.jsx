@@ -25,22 +25,22 @@ export default function CallLogTable() {
   const totalPages = Math.ceil(data.total / data.limit);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+    <div className="bg-white rounded-xl shadow-card border border-gray-100 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full text-left">
-          <thead className="bg-gray-50 border-b">
+          <thead className="bg-gray-50/80 border-b border-gray-100">
             <tr>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Direction</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">From</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">To</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Agent</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Duration</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Date</th>
-              <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase">Recording</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Direction</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">From</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">To</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Agent</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Recording</th>
             </tr>
           </thead>
-          <tbody className="divide-y">
+          <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
@@ -61,7 +61,7 @@ export default function CallLogTable() {
       </div>
 
       {totalPages > 1 && (
-        <div className="px-4 py-3 border-t flex items-center justify-between text-sm">
+        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between text-sm">
           <span className="text-gray-500">
             Page {data.page} of {totalPages} ({data.total} total)
           </span>
@@ -69,14 +69,14 @@ export default function CallLogTable() {
             <button
               onClick={() => fetchLogs(data.page - 1)}
               disabled={data.page <= 1}
-              className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-gray-50"
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors"
             >
               Previous
             </button>
             <button
               onClick={() => fetchLogs(data.page + 1)}
               disabled={data.page >= totalPages}
-              className="px-3 py-1 border rounded text-sm disabled:opacity-50 hover:bg-gray-50"
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-50 hover:bg-brand-50 hover:text-brand-600 hover:border-brand-200 transition-colors"
             >
               Next
             </button>
