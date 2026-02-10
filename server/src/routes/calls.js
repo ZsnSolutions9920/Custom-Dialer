@@ -1,6 +1,7 @@
 const express = require('express');
 const authMiddleware = require('../middleware/auth');
 const callService = require('../services/callService');
+const statsService = require('../services/statsService');
 const agentService = require('../services/agentService');
 const twilioClient = require('../services/twilioClient');
 const config = require('../config');
@@ -8,12 +9,105 @@ const logger = require('../utils/logger');
 
 const router = express.Router();
 
-// Get call logs with pagination
+// Dashboard stats
+router.get('/stats', authMiddleware, async (req, res) => {
+  try {
+    const days = parseInt(req.query.days, 10) || 7;
+    const stats = await statsService.getDashboardStats(days);
+    res.json(stats);
+  } catch (err) {
+    logger.error(err, 'Error fetching dashboard stats');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Call volume chart data
+router.get('/stats/volume', authMiddleware, async (req, res) => {
+  try {
+    const days = parseInt(req.query.days, 10) || 7;
+    const volume = await statsService.getCallVolume(days);
+    res.json(volume);
+  } catch (err) {
+    logger.error(err, 'Error fetching call volume');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Status breakdown
+router.get('/stats/status-breakdown', authMiddleware, async (req, res) => {
+  try {
+    const days = parseInt(req.query.days, 10) || 7;
+    const breakdown = await statsService.getStatusBreakdown(days);
+    res.json(breakdown);
+  } catch (err) {
+    logger.error(err, 'Error fetching status breakdown');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Agent leaderboard
+router.get('/stats/agent-leaderboard', authMiddleware, async (req, res) => {
+  try {
+    const days = parseInt(req.query.days, 10) || 7;
+    const leaderboard = await statsService.getAgentLeaderboard(days);
+    res.json(leaderboard);
+  } catch (err) {
+    logger.error(err, 'Error fetching agent leaderboard');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Export call logs as CSV
+router.get('/export', authMiddleware, async (req, res) => {
+  try {
+    const { search, direction, status, dateFrom, dateTo, agentId } = req.query;
+    const rows = await callService.getCallLogsForExport({ search, direction, status, dateFrom, dateTo, agentId });
+
+    const header = 'Direction,From,To,Agent,Status,Duration (s),Date,Notes,Disposition\n';
+    const csvRows = rows.map((r) => {
+      const date = r.started_at ? new Date(r.started_at).toISOString() : '';
+      return [
+        r.direction,
+        r.from_number,
+        r.to_number,
+        r.agent_name || '',
+        r.status,
+        r.duration_seconds || 0,
+        date,
+        (r.notes || '').replace(/"/g, '""'),
+        r.disposition || '',
+      ].map((v) => `"${v}"`).join(',');
+    });
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="call-logs.csv"');
+    res.send(header + csvRows.join('\n'));
+  } catch (err) {
+    logger.error(err, 'Error exporting call logs');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update call notes and disposition
+router.patch('/:id/notes', authMiddleware, async (req, res) => {
+  try {
+    const { notes, disposition } = req.body;
+    const call = await callService.updateCallNotes(req.params.id, { notes, disposition });
+    if (!call) return res.status(404).json({ error: 'Call not found' });
+    res.json(call);
+  } catch (err) {
+    logger.error(err, 'Error updating call notes');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get call logs with pagination and filters
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 50;
-    const result = await callService.getCallLogs({ page, limit });
+    const { search, direction, status, dateFrom, dateTo, agentId } = req.query;
+    const result = await callService.getCallLogs({ page, limit, search, direction, status, dateFrom, dateTo, agentId });
 
     // Backfill missing recordings from Twilio API
     const pool = require('../db/pool');

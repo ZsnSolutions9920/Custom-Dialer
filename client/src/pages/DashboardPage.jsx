@@ -1,6 +1,7 @@
 import DialerPanel from '../components/Dialer/DialerPanel';
 import AgentPresenceList from '../components/Agents/AgentPresenceList';
 import StatusSelector from '../components/Agents/StatusSelector';
+import DashboardStats from '../components/Dashboard/DashboardStats';
 
 export default function DashboardPage() {
   return (
@@ -9,6 +10,8 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-gray-800">Dashboard</h1>
         <StatusSelector />
       </div>
+
+      <DashboardStats />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <DialerPanel />

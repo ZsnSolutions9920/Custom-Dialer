@@ -36,6 +36,16 @@ export default function Sidebar() {
         >
           Call History
         </NavLink>
+        <NavLink
+          to="/contacts"
+          className={({ isActive }) =>
+            `block px-3 py-2.5 rounded-lg text-sm font-medium ${
+              isActive ? 'sidebar-active text-white' : 'text-white/70 sidebar-hover transition-colors'
+            }`
+          }
+        >
+          Contacts
+        </NavLink>
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-2.5">

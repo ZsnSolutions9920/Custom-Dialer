@@ -2,14 +2,14 @@ import { useState, useEffect } from 'react';
 import { getCallLogs } from '../../api/calls';
 import CallLogRow from './CallLogRow';
 
-export default function CallLogTable() {
+export default function CallLogTable({ filters = {} }) {
   const [data, setData] = useState({ calls: [], total: 0, page: 1, limit: 50 });
   const [loading, setLoading] = useState(true);
 
   const fetchLogs = async (page = 1) => {
     setLoading(true);
     try {
-      const result = await getCallLogs(page);
+      const result = await getCallLogs(page, 50, filters);
       setData(result);
     } catch (err) {
       console.error('Failed to load call logs:', err);
@@ -19,8 +19,15 @@ export default function CallLogTable() {
   };
 
   useEffect(() => {
-    fetchLogs();
-  }, []);
+    fetchLogs(1);
+  }, [filters]);
+
+  const handleCallUpdated = (updatedCall) => {
+    setData((prev) => ({
+      ...prev,
+      calls: prev.calls.map((c) => (c.id === updatedCall.id ? { ...c, ...updatedCall } : c)),
+    }));
+  };
 
   const totalPages = Math.ceil(data.total / data.limit);
 
@@ -37,24 +44,27 @@ export default function CallLogTable() {
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Duration</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+              <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Notes</th>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Recording</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {loading ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                   Loading...
                 </td>
               </tr>
             ) : data.calls.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={9} className="px-4 py-8 text-center text-gray-500">
                   No call history yet.
                 </td>
               </tr>
             ) : (
-              data.calls.map((call) => <CallLogRow key={call.id} call={call} />)
+              data.calls.map((call) => (
+                <CallLogRow key={call.id} call={call} onCallUpdated={handleCallUpdated} />
+              ))
             )}
           </tbody>
         </table>

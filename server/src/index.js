@@ -7,10 +7,12 @@ const logger = require('./utils/logger');
 const { setupSocket } = require('./socket');
 
 // Routes
+const authMiddleware = require('./middleware/auth');
 const authRoutes = require('./routes/auth');
 const agentRoutes = require('./routes/agents');
 const tokenRoutes = require('./routes/token');
 const callRoutes = require('./routes/calls');
+const contactRoutes = require('./routes/contacts');
 const twilioRoutes = require('./routes/twilio');
 
 const app = express();
@@ -30,6 +32,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/agents', agentRoutes);
 app.use('/api/token', tokenRoutes);
 app.use('/api/calls', callRoutes);
+app.use('/api/contacts', authMiddleware, contactRoutes);
 app.use('/api/twilio', twilioRoutes);
 
 // Serve React frontend in production

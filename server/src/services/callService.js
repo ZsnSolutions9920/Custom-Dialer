@@ -74,18 +74,106 @@ async function updateCallLog(callSid, updates) {
   return rows[0] || null;
 }
 
-async function getCallLogs({ page = 1, limit = 50 }) {
+async function getCallLogs({ page = 1, limit = 50, search, direction, status, dateFrom, dateTo, agentId }) {
+  const conditions = [];
+  const values = [];
+  let idx = 1;
+
+  if (search) {
+    conditions.push(`(cl.from_number ILIKE $${idx} OR cl.to_number ILIKE $${idx} OR a.display_name ILIKE $${idx})`);
+    values.push(`%${search}%`);
+    idx++;
+  }
+  if (direction) {
+    conditions.push(`cl.direction = $${idx++}`);
+    values.push(direction);
+  }
+  if (status) {
+    conditions.push(`cl.status = $${idx++}`);
+    values.push(status);
+  }
+  if (dateFrom) {
+    conditions.push(`cl.started_at >= $${idx++}`);
+    values.push(dateFrom);
+  }
+  if (dateTo) {
+    conditions.push(`cl.started_at <= $${idx++}`);
+    values.push(dateTo);
+  }
+  if (agentId) {
+    conditions.push(`cl.agent_id = $${idx++}`);
+    values.push(agentId);
+  }
+
+  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
   const offset = (page - 1) * limit;
+
   const { rows } = await pool.query(
     `SELECT cl.*, a.display_name as agent_name
      FROM call_logs cl
      LEFT JOIN agents a ON cl.agent_id = a.id
+     ${where}
      ORDER BY cl.started_at DESC
-     LIMIT $1 OFFSET $2`,
-    [limit, offset]
+     LIMIT $${idx} OFFSET $${idx + 1}`,
+    [...values, limit, offset]
   );
-  const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM call_logs');
+  const { rows: countRows } = await pool.query(
+    `SELECT COUNT(*) FROM call_logs cl LEFT JOIN agents a ON cl.agent_id = a.id ${where}`,
+    values
+  );
   return { calls: rows, total: parseInt(countRows[0].count, 10), page, limit };
+}
+
+async function updateCallNotes(callId, { notes, disposition }) {
+  const { rows } = await pool.query(
+    `UPDATE call_logs SET notes = $1, disposition = $2 WHERE id = $3 RETURNING *`,
+    [notes, disposition, callId]
+  );
+  return rows[0] || null;
+}
+
+async function getCallLogsForExport({ search, direction, status, dateFrom, dateTo, agentId }) {
+  const conditions = [];
+  const values = [];
+  let idx = 1;
+
+  if (search) {
+    conditions.push(`(cl.from_number ILIKE $${idx} OR cl.to_number ILIKE $${idx} OR a.display_name ILIKE $${idx})`);
+    values.push(`%${search}%`);
+    idx++;
+  }
+  if (direction) {
+    conditions.push(`cl.direction = $${idx++}`);
+    values.push(direction);
+  }
+  if (status) {
+    conditions.push(`cl.status = $${idx++}`);
+    values.push(status);
+  }
+  if (dateFrom) {
+    conditions.push(`cl.started_at >= $${idx++}`);
+    values.push(dateFrom);
+  }
+  if (dateTo) {
+    conditions.push(`cl.started_at <= $${idx++}`);
+    values.push(dateTo);
+  }
+  if (agentId) {
+    conditions.push(`cl.agent_id = $${idx++}`);
+    values.push(agentId);
+  }
+
+  const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+  const { rows } = await pool.query(
+    `SELECT cl.*, a.display_name as agent_name
+     FROM call_logs cl
+     LEFT JOIN agents a ON cl.agent_id = a.id
+     ${where}
+     ORDER BY cl.started_at DESC`,
+    values
+  );
+  return rows;
 }
 
 async function toggleHold(conferenceSid, callSid, hold) {
@@ -147,6 +235,8 @@ module.exports = {
   createCallLog,
   updateCallLog,
   getCallLogs,
+  updateCallNotes,
+  getCallLogsForExport,
   toggleHold,
   holdParticipant,
   hangupConference,
