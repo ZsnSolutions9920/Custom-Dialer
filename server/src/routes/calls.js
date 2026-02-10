@@ -51,7 +51,7 @@ router.get('/', authMiddleware, async (req, res) => {
 });
 
 // Download call recording (proxied through server to avoid exposing Twilio credentials)
-router.get('/:id/recording', authMiddleware, async (req, res) => {
+router.get('/:id/recording', async (req, res) => {
   try {
     const pool = require('../db/pool');
     const { rows } = await pool.query(
