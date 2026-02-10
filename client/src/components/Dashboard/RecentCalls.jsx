@@ -19,14 +19,14 @@ const STATUS_COLORS = {
   canceled: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
 };
 
-export default function RecentCalls({ onCall }) {
+export default function RecentCalls({ onCall, agentId }) {
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        const result = await getCallLogs(1, 5);
+        const result = await getCallLogs(1, 5, agentId ? { agentId } : {});
         setCalls(result.calls || []);
       } catch (err) {
         console.error('Failed to load recent calls:', err);
@@ -35,7 +35,7 @@ export default function RecentCalls({ onCall }) {
       }
     };
     fetch();
-  }, []);
+  }, [agentId]);
 
   const getNumber = (call) =>
     call.direction === 'inbound' ? call.from_number : call.to_number;

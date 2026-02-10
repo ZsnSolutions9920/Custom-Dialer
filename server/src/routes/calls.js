@@ -13,7 +13,8 @@ const router = express.Router();
 router.get('/stats', authMiddleware, async (req, res) => {
   try {
     const days = parseInt(req.query.days, 10) || 7;
-    const stats = await statsService.getDashboardStats(days);
+    const agentId = req.query.agentId ? parseInt(req.query.agentId, 10) : null;
+    const stats = await statsService.getDashboardStats(days, agentId);
     res.json(stats);
   } catch (err) {
     logger.error(err, 'Error fetching dashboard stats');
@@ -25,7 +26,8 @@ router.get('/stats', authMiddleware, async (req, res) => {
 router.get('/stats/volume', authMiddleware, async (req, res) => {
   try {
     const days = parseInt(req.query.days, 10) || 7;
-    const volume = await statsService.getCallVolume(days);
+    const agentId = req.query.agentId ? parseInt(req.query.agentId, 10) : null;
+    const volume = await statsService.getCallVolume(days, agentId);
     res.json(volume);
   } catch (err) {
     logger.error(err, 'Error fetching call volume');
@@ -37,7 +39,8 @@ router.get('/stats/volume', authMiddleware, async (req, res) => {
 router.get('/stats/status-breakdown', authMiddleware, async (req, res) => {
   try {
     const days = parseInt(req.query.days, 10) || 7;
-    const breakdown = await statsService.getStatusBreakdown(days);
+    const agentId = req.query.agentId ? parseInt(req.query.agentId, 10) : null;
+    const breakdown = await statsService.getStatusBreakdown(days, agentId);
     res.json(breakdown);
   } catch (err) {
     logger.error(err, 'Error fetching status breakdown');

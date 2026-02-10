@@ -26,6 +26,14 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const updateAgent = useCallback((updatedFields) => {
+    setAgent((prev) => {
+      const merged = { ...prev, ...updatedFields };
+      localStorage.setItem('agent', JSON.stringify(merged));
+      return merged;
+    });
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await authApi.logout();
@@ -39,7 +47,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ agent, isAuthenticated, loading, login, logout }}>
+    <AuthContext.Provider value={{ agent, isAuthenticated, loading, login, logout, updateAgent }}>
       {children}
     </AuthContext.Provider>
   );

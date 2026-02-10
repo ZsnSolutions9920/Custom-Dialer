@@ -37,4 +37,28 @@ async function updateStatus(id, status) {
   return rows[0] || null;
 }
 
-module.exports = { findByUsername, findById, findByIdentity, listAll, listAvailable, updateStatus };
+async function getProfile(id) {
+  const { rows } = await pool.query(
+    'SELECT id, username, display_name, email, phone, department, bio, twilio_identity, status, created_at FROM agents WHERE id = $1',
+    [id]
+  );
+  return rows[0] || null;
+}
+
+async function updateProfile(id, { displayName, email, phone, department, bio }) {
+  const { rows } = await pool.query(
+    `UPDATE agents SET
+       display_name = COALESCE($2, display_name),
+       email = COALESCE($3, email),
+       phone = COALESCE($4, phone),
+       department = COALESCE($5, department),
+       bio = COALESCE($6, bio),
+       updated_at = NOW()
+     WHERE id = $1
+     RETURNING id, username, display_name, email, phone, department, bio, twilio_identity, status, created_at`,
+    [id, displayName, email, phone, department, bio]
+  );
+  return rows[0] || null;
+}
+
+module.exports = { findByUsername, findById, findByIdentity, listAll, listAvailable, updateStatus, getProfile, updateProfile };

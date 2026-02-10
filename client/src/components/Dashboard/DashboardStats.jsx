@@ -30,7 +30,7 @@ const ArrowsIcon = () => (
   </svg>
 );
 
-export default function DashboardStats() {
+export default function DashboardStats({ agentId }) {
   const [stats, setStats] = useState(null);
   const [volume, setVolume] = useState([]);
   const [breakdown, setBreakdown] = useState([]);
@@ -40,16 +40,19 @@ export default function DashboardStats() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [s, v, b, l] = await Promise.all([
-          getCallStats(),
-          getCallVolume(),
-          getStatusBreakdown(),
-          getAgentLeaderboard(),
-        ]);
+        const promises = [
+          getCallStats(7, agentId),
+          getCallVolume(7, agentId),
+          getStatusBreakdown(7, agentId),
+        ];
+        if (!agentId) {
+          promises.push(getAgentLeaderboard());
+        }
+        const [s, v, b, l] = await Promise.all(promises);
         setStats(s);
         setVolume(v);
         setBreakdown(b);
-        setLeaderboard(l);
+        if (!agentId) setLeaderboard(l);
       } catch (err) {
         console.error('Failed to load dashboard stats:', err);
       } finally {
@@ -57,7 +60,7 @@ export default function DashboardStats() {
       }
     };
     fetchAll();
-  }, []);
+  }, [agentId]);
 
   if (loading) {
     return (
@@ -116,7 +119,7 @@ export default function DashboardStats() {
         <CallGoal />
       </div>
 
-      <AgentLeaderboard data={leaderboard} />
+      {!agentId && <AgentLeaderboard data={leaderboard} />}
     </div>
   );
 }

@@ -13,6 +13,26 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/me', authMiddleware, async (req, res) => {
+  try {
+    const profile = await agentService.getProfile(req.agent.id);
+    if (!profile) return res.status(404).json({ error: 'Agent not found' });
+    res.json(profile);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.patch('/me', authMiddleware, async (req, res) => {
+  try {
+    const updated = await agentService.updateProfile(req.agent.id, req.body);
+    if (!updated) return res.status(404).json({ error: 'Agent not found' });
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 router.patch('/:id/status', authMiddleware, async (req, res) => {
   try {
     const { id } = req.params;

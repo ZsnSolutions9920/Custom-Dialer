@@ -3,14 +3,14 @@ import api from './client';
 export const getCallLogs = (page = 1, limit = 50, filters = {}) =>
   api.get('/calls', { params: { page, limit, ...filters } }).then((r) => r.data);
 
-export const getCallStats = (days = 7) =>
-  api.get('/calls/stats', { params: { days } }).then((r) => r.data);
+export const getCallStats = (days = 7, agentId = null) =>
+  api.get('/calls/stats', { params: { days, ...(agentId && { agentId }) } }).then((r) => r.data);
 
-export const getCallVolume = (days = 7) =>
-  api.get('/calls/stats/volume', { params: { days } }).then((r) => r.data);
+export const getCallVolume = (days = 7, agentId = null) =>
+  api.get('/calls/stats/volume', { params: { days, ...(agentId && { agentId }) } }).then((r) => r.data);
 
-export const getStatusBreakdown = (days = 7) =>
-  api.get('/calls/stats/status-breakdown', { params: { days } }).then((r) => r.data);
+export const getStatusBreakdown = (days = 7, agentId = null) =>
+  api.get('/calls/stats/status-breakdown', { params: { days, ...(agentId && { agentId }) } }).then((r) => r.data);
 
 export const getAgentLeaderboard = (days = 7) =>
   api.get('/calls/stats/agent-leaderboard', { params: { days } }).then((r) => r.data);

@@ -1,6 +1,12 @@
 const pool = require('../db/pool');
 
-async function getDashboardStats(days = 7) {
+async function getDashboardStats(days = 7, agentId = null) {
+  const params = [days];
+  let agentFilter = '';
+  if (agentId) {
+    agentFilter = ' AND agent_id = $2';
+    params.push(agentId);
+  }
   const { rows } = await pool.query(
     `SELECT
        COUNT(*)::int AS total_calls,
@@ -11,36 +17,48 @@ async function getDashboardStats(days = 7) {
        COUNT(*) FILTER (WHERE direction = 'inbound')::int AS inbound_count,
        COUNT(*) FILTER (WHERE direction = 'outbound')::int AS outbound_count
      FROM call_logs
-     WHERE started_at >= NOW() - ($1 || ' days')::interval`,
-    [days]
+     WHERE started_at >= NOW() - ($1 || ' days')::interval${agentFilter}`,
+    params
   );
   return rows[0];
 }
 
-async function getCallVolume(days = 7) {
+async function getCallVolume(days = 7, agentId = null) {
+  const params = [days];
+  let agentFilter = '';
+  if (agentId) {
+    agentFilter = ' AND agent_id = $2';
+    params.push(agentId);
+  }
   const { rows } = await pool.query(
     `SELECT
        started_at::date AS date,
        COUNT(*)::int AS count
      FROM call_logs
-     WHERE started_at >= NOW() - ($1 || ' days')::interval
+     WHERE started_at >= NOW() - ($1 || ' days')::interval${agentFilter}
      GROUP BY started_at::date
      ORDER BY date`,
-    [days]
+    params
   );
   return rows;
 }
 
-async function getStatusBreakdown(days = 7) {
+async function getStatusBreakdown(days = 7, agentId = null) {
+  const params = [days];
+  let agentFilter = '';
+  if (agentId) {
+    agentFilter = ' AND agent_id = $2';
+    params.push(agentId);
+  }
   const { rows } = await pool.query(
     `SELECT
        status,
        COUNT(*)::int AS count
      FROM call_logs
-     WHERE started_at >= NOW() - ($1 || ' days')::interval
+     WHERE started_at >= NOW() - ($1 || ' days')::interval${agentFilter}
      GROUP BY status
      ORDER BY count DESC`,
-    [days]
+    params
   );
   return rows;
 }

@@ -56,7 +56,13 @@ export default function Sidebar({ open, onClose, darkMode, onToggleDarkMode }) {
 
       <nav className="flex-1 px-3 py-6 space-y-1">
         <NavLink to="/" end className={linkClass} onClick={onClose}>
-          Dashboard
+          My Dashboard
+        </NavLink>
+        <NavLink to="/dashboard" className={linkClass} onClick={onClose}>
+          Overall Dashboard
+        </NavLink>
+        <NavLink to="/profile" className={linkClass} onClick={onClose}>
+          My Profile
         </NavLink>
         <NavLink to="/history" className={linkClass} onClick={onClose}>
           Call History

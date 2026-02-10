@@ -5,7 +5,9 @@ import { CallProvider } from './context/CallContext';
 import LoginPage from './components/Auth/LoginPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import AppLayout from './components/Layout/AppLayout';
+import MyDashboardPage from './pages/MyDashboardPage';
 import DashboardPage from './pages/DashboardPage';
+import AgentProfilePage from './pages/AgentProfilePage';
 import CallHistoryPage from './pages/CallHistoryPage';
 import ContactsPage from './pages/ContactsPage';
 
@@ -15,7 +17,9 @@ function AuthenticatedApp() {
       <CallProvider>
         <Routes>
           <Route element={<AppLayout />}>
-            <Route index element={<DashboardPage />} />
+            <Route index element={<MyDashboardPage />} />
+            <Route path="dashboard" element={<DashboardPage />} />
+            <Route path="profile" element={<AgentProfilePage />} />
             <Route path="history" element={<CallHistoryPage />} />
             <Route path="contacts" element={<ContactsPage />} />
           </Route>
