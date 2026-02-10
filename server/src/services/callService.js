@@ -109,9 +109,11 @@ async function getCallLogs({ page = 1, limit = 50, search, direction, status, da
   const offset = (page - 1) * limit;
 
   const { rows } = await pool.query(
-    `SELECT cl.*, a.display_name as agent_name
+    `SELECT cl.*, a.display_name as agent_name,
+            con.name as contact_name
      FROM call_logs cl
      LEFT JOIN agents a ON cl.agent_id = a.id
+     LEFT JOIN contacts con ON (cl.from_number = con.phone_number OR cl.to_number = con.phone_number)
      ${where}
      ORDER BY cl.started_at DESC
      LIMIT $${idx} OFFSET $${idx + 1}`,
@@ -166,9 +168,11 @@ async function getCallLogsForExport({ search, direction, status, dateFrom, dateT
   const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
   const { rows } = await pool.query(
-    `SELECT cl.*, a.display_name as agent_name
+    `SELECT cl.*, a.display_name as agent_name,
+            con.name as contact_name
      FROM call_logs cl
      LEFT JOIN agents a ON cl.agent_id = a.id
+     LEFT JOIN contacts con ON (cl.from_number = con.phone_number OR cl.to_number = con.phone_number)
      ${where}
      ORDER BY cl.started_at DESC`,
     values

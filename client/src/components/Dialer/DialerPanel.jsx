@@ -7,7 +7,7 @@ export default function DialerPanel() {
 
   return (
     <div className="card p-6">
-      <h2 className="text-lg font-semibold mb-4 text-center text-gray-800">
+      <h2 className="text-lg font-semibold mb-4 text-center text-gray-800 dark:text-gray-100">
         {callState === 'idle' ? 'Make a Call' : 'Call Controls'}
       </h2>
       <Dialpad />

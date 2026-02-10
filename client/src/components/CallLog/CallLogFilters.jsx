@@ -25,20 +25,20 @@ export default function CallLogFilters({ filters, onFilterChange }) {
   const hasFilters = filters.search || filters.direction || filters.status || filters.dateFrom || filters.dateTo;
 
   return (
-    <div className="bg-white rounded-xl shadow-card border border-gray-100 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-card border border-gray-100 dark:border-gray-700 p-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap items-center gap-3">
         <input
           type="text"
           placeholder="Search phone or agent..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 w-full lg:w-52"
+          className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 w-full lg:w-52 dark:bg-gray-700 dark:text-gray-100"
         />
 
         <select
           value={filters.direction || ''}
           onChange={(e) => handleChange('direction', e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white w-full sm:w-auto"
+          className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white dark:bg-gray-700 dark:text-gray-100 w-full sm:w-auto"
         >
           <option value="">All Directions</option>
           <option value="inbound">Inbound</option>
@@ -48,7 +48,7 @@ export default function CallLogFilters({ filters, onFilterChange }) {
         <select
           value={filters.status || ''}
           onChange={(e) => handleChange('status', e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white w-full sm:w-auto"
+          className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white dark:bg-gray-700 dark:text-gray-100 w-full sm:w-auto"
         >
           <option value="">All Statuses</option>
           <option value="completed">Completed</option>
@@ -62,7 +62,7 @@ export default function CallLogFilters({ filters, onFilterChange }) {
           type="date"
           value={filters.dateFrom || ''}
           onChange={(e) => handleChange('dateFrom', e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-auto"
+          className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-auto dark:bg-gray-700 dark:text-gray-100"
           title="Date from"
         />
 
@@ -70,7 +70,7 @@ export default function CallLogFilters({ filters, onFilterChange }) {
           type="date"
           value={filters.dateTo || ''}
           onChange={(e) => handleChange('dateTo', e.target.value)}
-          className="px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-auto"
+          className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 w-full sm:w-auto dark:bg-gray-700 dark:text-gray-100"
           title="Date to"
         />
 
@@ -78,7 +78,7 @@ export default function CallLogFilters({ filters, onFilterChange }) {
           {hasFilters && (
             <button
               onClick={clearAll}
-              className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+              className="px-3 py-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
             >
               Clear All
             </button>

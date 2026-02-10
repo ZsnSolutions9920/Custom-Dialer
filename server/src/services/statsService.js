@@ -63,9 +63,18 @@ async function getAgentLeaderboard(days = 7) {
   return rows;
 }
 
+async function getTodayCallCount(agentId) {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*)::int AS count FROM call_logs WHERE agent_id = $1 AND started_at >= CURRENT_DATE`,
+    [agentId]
+  );
+  return rows[0].count;
+}
+
 module.exports = {
   getDashboardStats,
   getCallVolume,
   getStatusBreakdown,
   getAgentLeaderboard,
+  getTodayCallCount,
 };

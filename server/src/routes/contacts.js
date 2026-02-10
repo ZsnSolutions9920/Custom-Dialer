@@ -83,6 +83,18 @@ router.put('/:id', async (req, res) => {
   }
 });
 
+// Toggle favorite
+router.patch('/:id/favorite', async (req, res) => {
+  try {
+    const contact = await contactService.toggleFavorite(req.params.id);
+    if (!contact) return res.status(404).json({ error: 'Contact not found' });
+    res.json(contact);
+  } catch (err) {
+    logger.error(err, 'Error toggling favorite');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Delete contact
 router.delete('/:id', async (req, res) => {
   try {

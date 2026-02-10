@@ -31,7 +31,7 @@ export default function CallControls() {
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             isMuted
               ? 'bg-yellow-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           } disabled:opacity-50`}
         >
           {isMuted ? 'Unmute' : 'Mute'}
@@ -43,7 +43,7 @@ export default function CallControls() {
           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
             isHeld
               ? 'bg-orange-500 text-white shadow-sm'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
           } disabled:opacity-50`}
         >
           {isHeld ? 'Resume' : 'Hold'}
@@ -52,7 +52,7 @@ export default function CallControls() {
         <button
           onClick={() => setShowTransfer(true)}
           disabled={!canControl}
-          className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 disabled:opacity-50 transition-colors"
+          className="px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors"
         >
           Transfer
         </button>
@@ -66,8 +66,8 @@ export default function CallControls() {
       </div>
 
       {transferInProgress && transferInProgress.type === 'warm' && (
-        <div className="flex items-center justify-center gap-2 bg-brand-50 p-3 rounded-lg">
-          <span className="text-sm text-brand-700">Warm transfer in progress...</span>
+        <div className="flex items-center justify-center gap-2 bg-brand-50 dark:bg-brand-900/30 p-3 rounded-lg">
+          <span className="text-sm text-brand-700 dark:text-brand-400">Warm transfer in progress...</span>
           <button
             onClick={completeTransfer}
             className="px-3 py-1 bg-brand-500 text-white rounded-lg text-sm hover:bg-brand-600 transition-colors"

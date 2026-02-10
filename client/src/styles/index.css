@@ -12,11 +12,15 @@
     outline: 2px solid #10B981;
     outline-offset: 2px;
   }
+
+  .dark {
+    color-scheme: dark;
+  }
 }
 
 @layer components {
   .card {
-    @apply bg-white rounded-xl shadow-card border border-gray-100;
+    @apply bg-white rounded-xl shadow-card border border-gray-100 dark:bg-gray-800 dark:border-gray-700;
   }
 
   .sidebar-active {

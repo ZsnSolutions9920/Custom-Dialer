@@ -15,6 +15,9 @@ export const getStatusBreakdown = (days = 7) =>
 export const getAgentLeaderboard = (days = 7) =>
   api.get('/calls/stats/agent-leaderboard', { params: { days } }).then((r) => r.data);
 
+export const getTodayCallCount = () =>
+  api.get('/calls/stats/today-count').then((r) => r.data);
+
 export const updateCallNotes = (callId, data) =>
   api.patch(`/calls/${callId}/notes`, data).then((r) => r.data);
 

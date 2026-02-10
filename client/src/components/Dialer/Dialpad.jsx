@@ -41,7 +41,7 @@ export default function Dialpad() {
             value={number}
             onChange={(e) => setNumber(e.target.value)}
             placeholder="+1 (555) 123-4567"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2.5 text-center text-lg font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow"
+            className="flex-1 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-center text-lg font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow dark:bg-gray-700 dark:text-gray-100"
           />
           {number && (
             <button onClick={handleBackspace} className="text-gray-400 hover:text-brand-500 px-2 py-2 transition-colors">
@@ -57,7 +57,7 @@ export default function Dialpad() {
             <button
               key={key}
               onClick={() => handleKey(key)}
-              className="bg-gray-50 hover:bg-brand-50 hover:text-brand-600 active:bg-brand-100 rounded-xl py-3 text-xl font-medium transition-colors"
+              className="bg-gray-50 dark:bg-gray-700 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 active:bg-brand-100 dark:active:bg-brand-900/50 rounded-xl py-3 text-xl font-medium transition-colors dark:text-gray-200"
             >
               {key}
             </button>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { getContacts, deleteContact } from '../api/contacts';
+import { getContacts, deleteContact, toggleFavorite } from '../api/contacts';
+import { useCall } from '../context/CallContext';
 import ContactsList from '../components/Contacts/ContactsList';
 import ContactFormModal from '../components/Contacts/ContactFormModal';
 
@@ -10,6 +11,7 @@ export default function ContactsPage() {
   const [editingContact, setEditingContact] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const debounceRef = useRef(null);
+  const { makeCall } = useCall();
 
   const fetchContacts = async (page = 1, searchVal = search) => {
     setLoading(true);
@@ -45,6 +47,15 @@ export default function ContactsPage() {
     }
   };
 
+  const handleToggleFavorite = async (id) => {
+    try {
+      await toggleFavorite(id);
+      fetchContacts(data.page, search);
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+    }
+  };
+
   const handleEdit = (contact) => {
     setEditingContact(contact);
     setShowForm(true);
@@ -59,7 +70,7 @@ export default function ContactsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-800">Contacts</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Contacts</h1>
         <button
           onClick={() => { setEditingContact(null); setShowForm(true); }}
           className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors"
@@ -73,7 +84,7 @@ export default function ContactsPage() {
         placeholder="Search contacts..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full max-w-sm px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+        className="w-full max-w-sm px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:text-gray-100"
       />
 
       <ContactsList
@@ -81,6 +92,8 @@ export default function ContactsPage() {
         loading={loading}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        onCall={makeCall}
+        onToggleFavorite={handleToggleFavorite}
         onPageChange={(page) => fetchContacts(page, search)}
       />
 

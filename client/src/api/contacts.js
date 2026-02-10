@@ -12,5 +12,8 @@ export const createContact = (data) =>
 export const updateContact = (id, data) =>
   api.put(`/contacts/${id}`, data).then((r) => r.data);
 
+export const toggleFavorite = (id) =>
+  api.patch(`/contacts/${id}/favorite`).then((r) => r.data);
+
 export const deleteContact = (id) =>
   api.delete(`/contacts/${id}`).then((r) => r.data);

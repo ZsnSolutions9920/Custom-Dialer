@@ -45,6 +45,17 @@ router.get('/stats/status-breakdown', authMiddleware, async (req, res) => {
   }
 });
 
+// Today's call count for agent
+router.get('/stats/today-count', authMiddleware, async (req, res) => {
+  try {
+    const count = await statsService.getTodayCallCount(req.agent.id);
+    res.json({ count });
+  } catch (err) {
+    logger.error(err, 'Error fetching today call count');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Agent leaderboard
 router.get('/stats/agent-leaderboard', authMiddleware, async (req, res) => {
   try {

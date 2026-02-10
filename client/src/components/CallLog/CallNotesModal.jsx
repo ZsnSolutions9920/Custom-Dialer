@@ -32,18 +32,18 @@ export default function CallNotesModal({ call, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Call Notes</h2>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Call Notes</h2>
 
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Disposition</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Disposition</label>
             <select
               value={disposition}
               onChange={(e) => setDisposition(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white dark:bg-gray-700 dark:text-gray-100"
             >
               {DISPOSITIONS.map((d) => (
                 <option key={d.value} value={d.value}>{d.label}</option>
@@ -52,12 +52,12 @@ export default function CallNotesModal({ call, onClose, onSaved }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Notes</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none dark:bg-gray-700 dark:text-gray-100"
               placeholder="Add notes about this call..."
             />
           </div>
@@ -66,7 +66,7 @@ export default function CallNotesModal({ call, onClose, onSaved }) {
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+            className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
           >
             Cancel
           </button>

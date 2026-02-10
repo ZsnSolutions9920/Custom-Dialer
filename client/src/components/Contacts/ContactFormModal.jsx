@@ -43,69 +43,69 @@ export default function ContactFormModal({ contact, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div
-        className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6"
+        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
           {isEdit ? 'Edit Contact' : 'Add Contact'}
         </h2>
 
         {error && (
-          <div className="mb-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg">{error}</div>
+          <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-sm rounded-lg">{error}</div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Name *</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Name *</label>
             <input
               name="name"
               value={form.name}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Phone Number *</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Phone Number *</label>
             <input
               name="phone_number"
               value={form.phone_number}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Email</label>
             <input
               name="email"
               type="email"
               value={form.email}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Company</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Company</label>
             <input
               name="company"
               value={form.company}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">Notes</label>
             <textarea
               name="notes"
               value={form.notes}
               onChange={handleChange}
               rows={3}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none dark:bg-gray-700 dark:text-gray-100"
             />
           </div>
 
@@ -113,7 +113,7 @@ export default function ContactFormModal({ contact, onClose, onSaved }) {
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
             >
               Cancel
             </button>

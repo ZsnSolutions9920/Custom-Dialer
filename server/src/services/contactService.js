@@ -24,7 +24,7 @@ async function getContacts({ agentId, search, page = 1, limit = 50 }) {
      FROM contacts c
      LEFT JOIN agents a ON c.agent_id = a.id
      ${where}
-     ORDER BY c.created_at DESC
+     ORDER BY c.is_favorite DESC, c.created_at DESC
      LIMIT $${idx} OFFSET $${idx + 1}`,
     [...values, limit, offset]
   );
@@ -73,6 +73,14 @@ async function updateContact(id, { name, phoneNumber, email, company, notes }) {
   return rows[0] || null;
 }
 
+async function toggleFavorite(id) {
+  const { rows } = await pool.query(
+    `UPDATE contacts SET is_favorite = NOT is_favorite, updated_at = NOW() WHERE id = $1 RETURNING *`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
 async function deleteContact(id) {
   const { rowCount } = await pool.query('DELETE FROM contacts WHERE id = $1', [id]);
   return rowCount > 0;
@@ -84,5 +92,6 @@ module.exports = {
   getContactByPhone,
   createContact,
   updateContact,
+  toggleFavorite,
   deleteContact,
 };
