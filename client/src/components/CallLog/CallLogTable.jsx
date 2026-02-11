@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { getCallLogs } from '../../api/calls';
 import { useToast } from '../../context/ToastContext';
 import CallLogRow from './CallLogRow';
@@ -7,9 +7,6 @@ export default function CallLogTable({ filters = {} }) {
   const toast = useToast();
   const [data, setData] = useState({ calls: [], total: 0, page: 1, limit: 20 });
   const [loading, setLoading] = useState(true);
-  const topBarRef = useRef(null);
-  const scrollRef = useRef(null);
-
   const fetchLogs = async (page = 1) => {
     setLoading(true);
     try {
@@ -38,18 +35,7 @@ export default function CallLogTable({ filters = {} }) {
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-card border border-gray-100 dark:border-gray-700 overflow-hidden">
-      <div
-        ref={topBarRef}
-        className="overflow-x-auto md:hidden"
-        onScroll={() => { if (scrollRef.current) scrollRef.current.scrollLeft = topBarRef.current.scrollLeft; }}
-      >
-        <div style={{ minWidth: 800, height: 1 }} />
-      </div>
-      <div
-        className="overflow-x-auto"
-        ref={scrollRef}
-        onScroll={() => { if (topBarRef.current) topBarRef.current.scrollLeft = scrollRef.current.scrollLeft; }}
-      >
+      <div className="overflow-x-auto">
         <table className="w-full min-w-[800px] text-left">
           <thead className="bg-gray-50/80 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
             <tr>

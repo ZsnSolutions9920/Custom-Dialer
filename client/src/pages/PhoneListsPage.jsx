@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { read, utils } from 'xlsx';
 import { getPhoneLists, getListEntries, getEntry, createPhoneList, addListEntries, deletePhoneList, markEntryCalled, updateEntryStatus } from '../api/phoneLists';
 import { useCall } from '../context/CallContext';
@@ -231,8 +231,6 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
   const [data, setData] = useState({ entries: [], total: 0, page: 1, limit: 50 });
   const [loading, setLoading] = useState(true);
   const { makeCall } = useCall();
-  const topBarRef = useRef(null);
-  const scrollRef = useRef(null);
 
   const fetchEntries = async (page = 1) => {
     setLoading(true);
@@ -299,18 +297,7 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
         <p className="text-gray-500 dark:text-gray-400 text-sm">No leads in this list.</p>
       ) : (
         <>
-          <div
-            ref={topBarRef}
-            className="overflow-x-auto md:hidden"
-            onScroll={() => { if (scrollRef.current) scrollRef.current.scrollLeft = topBarRef.current.scrollLeft; }}
-          >
-            <div style={{ minWidth: 700, height: 1 }} />
-          </div>
-          <div
-            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto"
-            ref={scrollRef}
-            onScroll={() => { if (topBarRef.current) topBarRef.current.scrollLeft = scrollRef.current.scrollLeft; }}
-          >
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
             <table className="w-full min-w-[700px] text-sm">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 text-left text-gray-500 dark:text-gray-400">
