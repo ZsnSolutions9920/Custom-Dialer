@@ -12,7 +12,7 @@ async function getDashboardStats(days = 7, agentId = null) {
        COUNT(*)::int AS total_calls,
        COALESCE(AVG(duration_seconds) FILTER (WHERE duration_seconds > 0), 0)::int AS avg_duration,
        CASE WHEN COUNT(*) > 0
-         THEN ROUND(COUNT(*) FILTER (WHERE status = 'completed')::numeric / COUNT(*) * 100, 1)
+         THEN ROUND(COUNT(*) FILTER (WHERE status = 'completed' AND duration_seconds >= 60)::numeric / COUNT(*) * 100, 1)
          ELSE 0 END AS answer_rate,
        COUNT(*) FILTER (WHERE direction = 'inbound')::int AS inbound_count,
        COUNT(*) FILTER (WHERE direction = 'outbound')::int AS outbound_count
