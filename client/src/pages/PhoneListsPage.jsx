@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { read, utils } from 'xlsx';
-import { getPhoneLists, getListEntries, getEntry, uploadPhoneList, deletePhoneList, markEntryCalled } from '../api/phoneLists';
+import { getPhoneLists, getListEntries, getEntry, createPhoneList, addListEntries, deletePhoneList, markEntryCalled } from '../api/phoneLists';
 import { useCall } from '../context/CallContext';
 import { useToast } from '../context/ToastContext';
 
@@ -128,7 +128,11 @@ function UploadModal({ onClose, onUploaded, toast }) {
     if (!name.trim() || entries.length === 0) return;
     setSubmitting(true);
     try {
-      await uploadPhoneList({ name: name.trim(), entries });
+      const list = await createPhoneList({ name: name.trim(), totalCount: entries.length });
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+        await addListEntries(list.id, entries.slice(i, i + BATCH_SIZE));
+      }
       onUploaded();
     } catch (err) {
       console.error('Failed to upload list:', err);

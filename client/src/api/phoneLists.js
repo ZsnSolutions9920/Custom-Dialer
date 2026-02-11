@@ -1,7 +1,10 @@
 import api from './client';
 
-export const uploadPhoneList = (data) =>
+export const createPhoneList = (data) =>
   api.post('/phone-lists', data).then((r) => r.data);
+
+export const addListEntries = (listId, entries) =>
+  api.post(`/phone-lists/${listId}/entries`, { entries }).then((r) => r.data);
 
 export const getPhoneLists = () =>
   api.get('/phone-lists').then((r) => r.data);

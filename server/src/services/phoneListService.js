@@ -1,41 +1,43 @@
 const pool = require('../db/pool');
 
-async function createList({ name, agentId, entries }) {
+async function insertEntries(client, listId, entries) {
+  if (entries.length === 0) return;
+  const values = [];
+  const placeholders = [];
+  let idx = 1;
+  for (const entry of entries) {
+    placeholders.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`);
+    values.push(
+      listId,
+      entry.phone_number,
+      entry.name || null,
+      entry.primary_email || null,
+      JSON.stringify(entry.metadata || {})
+    );
+  }
+  await client.query(
+    `INSERT INTO phone_list_entries (list_id, phone_number, name, primary_email, metadata)
+     VALUES ${placeholders.join(', ')}`,
+    values
+  );
+}
+
+async function createList({ name, agentId, totalCount }) {
+  const { rows } = await pool.query(
+    `INSERT INTO phone_lists (name, agent_id, total_count)
+     VALUES ($1, $2, $3)
+     RETURNING *`,
+    [name, agentId, totalCount]
+  );
+  return rows[0];
+}
+
+async function addEntries(listId, entries) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-
-    const { rows: listRows } = await client.query(
-      `INSERT INTO phone_lists (name, agent_id, total_count)
-       VALUES ($1, $2, $3)
-       RETURNING *`,
-      [name, agentId, entries.length]
-    );
-    const list = listRows[0];
-
-    if (entries.length > 0) {
-      const values = [];
-      const placeholders = [];
-      let idx = 1;
-      for (const entry of entries) {
-        placeholders.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`);
-        values.push(
-          list.id,
-          entry.phone_number,
-          entry.name || null,
-          entry.primary_email || null,
-          JSON.stringify(entry.metadata || {})
-        );
-      }
-      await client.query(
-        `INSERT INTO phone_list_entries (list_id, phone_number, name, primary_email, metadata)
-         VALUES ${placeholders.join(', ')}`,
-        values
-      );
-    }
-
+    await insertEntries(client, listId, entries);
     await client.query('COMMIT');
-    return list;
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -103,6 +105,7 @@ async function deleteList(listId) {
 
 module.exports = {
   createList,
+  addEntries,
   getLists,
   getListEntries,
   getEntry,

@@ -7,18 +7,33 @@ const router = express.Router();
 // Create a new phone list
 router.post('/', async (req, res) => {
   try {
-    const { name, entries } = req.body;
-    if (!name || !Array.isArray(entries) || entries.length === 0) {
-      return res.status(400).json({ error: 'name and a non-empty entries array are required' });
+    const { name, totalCount } = req.body;
+    if (!name || !totalCount) {
+      return res.status(400).json({ error: 'name and totalCount are required' });
     }
     const list = await phoneListService.createList({
       name,
       agentId: req.agent.id,
-      entries,
+      totalCount,
     });
     res.status(201).json(list);
   } catch (err) {
     logger.error(err, 'Error creating phone list');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add entries to an existing list (batch upload)
+router.post('/:id/entries', async (req, res) => {
+  try {
+    const { entries } = req.body;
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return res.status(400).json({ error: 'a non-empty entries array is required' });
+    }
+    await phoneListService.addEntries(req.params.id, entries);
+    res.status(201).json({ ok: true, count: entries.length });
+  } catch (err) {
+    logger.error(err, 'Error adding entries');
     res.status(500).json({ error: 'Internal server error' });
   }
 });
