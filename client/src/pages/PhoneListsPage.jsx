@@ -5,7 +5,14 @@ import { useToast } from '../context/ToastContext';
 
 /* ── CSV helpers ── */
 
-function parseCSVLine(line) {
+function detectDelimiter(line) {
+  const tabCount = (line.match(/\t/g) || []).length;
+  const commaCount = (line.match(/,/g) || []).length;
+  return tabCount > commaCount ? '\t' : ',';
+}
+
+function parseLine(line, delimiter) {
+  if (delimiter === '\t') return line.split('\t').map((f) => f.trim());
   const fields = [];
   let current = '';
   let inQuotes = false;
@@ -46,16 +53,21 @@ function UploadModal({ onClose, onUploaded, toast }) {
   const [submitting, setSubmitting] = useState(false);
 
   const parseFile = (file) => {
+    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+      toast.error('Excel files are not supported. Please export as CSV first (File → Save As → CSV).');
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target.result;
       const lines = text.split(/\r?\n/).filter((l) => l.trim());
       if (lines.length === 0) return;
 
-      const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/^["']|["']$/g, ''));
+      const delimiter = detectDelimiter(lines[0]);
+      const headers = parseLine(lines[0], delimiter).map((h) => h.toLowerCase().replace(/^["']|["']$/g, ''));
       const hasHeader = headers.some((h) => h.includes('phone') || h.includes('number') || h.includes('name') || h.includes('email'));
       if (!hasHeader) {
-        toast.error('Could not detect a phone column in the CSV headers');
+        toast.error('Could not detect column headers. Make sure the first row has column names.');
         return;
       }
 
@@ -64,14 +76,14 @@ function UploadModal({ onClose, onUploaded, toast }) {
       const emailIdx = detectColumnIndex(headers, ['primary email', 'email']);
 
       if (phoneIdx === -1) {
-        toast.error('Could not detect a phone column in the CSV headers');
+        toast.error('Could not detect a phone column in the headers');
         return;
       }
 
       const dataLines = lines.slice(1);
       const parsed = [];
       for (const line of dataLines) {
-        const parts = parseCSVLine(line).map((p) => p.replace(/^["']|["']$/g, ''));
+        const parts = parseLine(line, delimiter).map((p) => p.replace(/^["']|["']$/g, ''));
         const phone = parts[phoneIdx]?.replace(/[^\d+\-() ]/g, '').trim();
         if (!phone) continue;
 
@@ -125,10 +137,10 @@ function UploadModal({ onClose, onUploaded, toast }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">File (.csv or .txt)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">File (.csv, .tsv, or .txt)</label>
             <input
               type="file"
-              accept=".csv,.txt"
+              accept=".csv,.tsv,.txt"
               onChange={(e) => e.target.files[0] && parseFile(e.target.files[0])}
               className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 dark:file:bg-brand-900/30 dark:file:text-brand-300 hover:file:bg-brand-100"
             />
