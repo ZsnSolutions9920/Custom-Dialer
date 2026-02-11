@@ -51,6 +51,18 @@ router.get('/:id/entries', async (req, res) => {
   }
 });
 
+// Get a single entry by ID
+router.get('/entries/:entryId', async (req, res) => {
+  try {
+    const entry = await phoneListService.getEntry(req.params.entryId);
+    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+    res.json(entry);
+  } catch (err) {
+    logger.error(err, 'Error fetching entry');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Mark an entry as called
 router.patch('/:entryId/called', async (req, res) => {
   try {

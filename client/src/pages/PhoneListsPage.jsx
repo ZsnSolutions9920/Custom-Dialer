@@ -1,7 +1,43 @@
 import { useState, useEffect } from 'react';
-import { getPhoneLists, getListEntries, uploadPhoneList, deletePhoneList, markEntryCalled } from '../api/phoneLists';
+import { getPhoneLists, getListEntries, getEntry, uploadPhoneList, deletePhoneList, markEntryCalled } from '../api/phoneLists';
 import { useCall } from '../context/CallContext';
 import { useToast } from '../context/ToastContext';
+
+/* ── CSV helpers ── */
+
+function parseCSVLine(line) {
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        current += ch;
+      }
+    } else if (ch === '"') {
+      inQuotes = true;
+    } else if (ch === ',') {
+      fields.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+function detectColumnIndex(headers, patterns) {
+  return headers.findIndex((h) => patterns.some((p) => h.includes(p)));
+}
+
+/* ── UploadModal ── */
 
 function UploadModal({ onClose, onUploaded, toast }) {
   const [name, setName] = useState('');
@@ -16,28 +52,40 @@ function UploadModal({ onClose, onUploaded, toast }) {
       const lines = text.split(/\r?\n/).filter((l) => l.trim());
       if (lines.length === 0) return;
 
-      // Detect CSV with headers
-      const firstLine = lines[0].toLowerCase();
-      const hasHeader = firstLine.includes('phone') || firstLine.includes('number') || firstLine.includes('name');
-      const dataLines = hasHeader ? lines.slice(1) : lines;
-
-      // Find column indexes if CSV with header
-      let phoneIdx = 0;
-      let nameIdx = -1;
-      if (hasHeader) {
-        const headers = firstLine.split(',').map((h) => h.trim());
-        phoneIdx = headers.findIndex((h) => h.includes('phone') || h.includes('number'));
-        nameIdx = headers.findIndex((h) => h === 'name' || h.includes('contact'));
-        if (phoneIdx === -1) phoneIdx = 0;
+      const headers = parseCSVLine(lines[0]).map((h) => h.toLowerCase().replace(/^["']|["']$/g, ''));
+      const hasHeader = headers.some((h) => h.includes('phone') || h.includes('number') || h.includes('name') || h.includes('email'));
+      if (!hasHeader) {
+        toast.error('Could not detect a phone column in the CSV headers');
+        return;
       }
 
+      const phoneIdx = detectColumnIndex(headers, ['phone', 'telephone', 'mobile']);
+      const nameIdx = detectColumnIndex(headers, ['client name', 'name', 'applicant']);
+      const emailIdx = detectColumnIndex(headers, ['primary email', 'email']);
+
+      if (phoneIdx === -1) {
+        toast.error('Could not detect a phone column in the CSV headers');
+        return;
+      }
+
+      const dataLines = lines.slice(1);
       const parsed = [];
       for (const line of dataLines) {
-        const parts = line.includes(',') ? line.split(',').map((p) => p.trim().replace(/^["']|["']$/g, '')) : [line.trim()];
+        const parts = parseCSVLine(line).map((p) => p.replace(/^["']|["']$/g, ''));
         const phone = parts[phoneIdx]?.replace(/[^\d+\-() ]/g, '').trim();
         if (!phone) continue;
-        const entryName = nameIdx >= 0 ? parts[nameIdx] || null : (parts.length > 1 && phoneIdx === 0 ? parts[1] || null : (parts.length > 1 && phoneIdx === 1 ? parts[0] || null : null));
-        parsed.push({ phone_number: phone, name: entryName });
+
+        const entryName = nameIdx >= 0 ? parts[nameIdx] || null : null;
+        const entryEmail = emailIdx >= 0 ? parts[emailIdx] || null : null;
+
+        const metadata = {};
+        headers.forEach((h, i) => {
+          if (i === phoneIdx || i === nameIdx || i === emailIdx) return;
+          const val = parts[i];
+          if (val) metadata[h] = val;
+        });
+
+        parsed.push({ phone_number: phone, name: entryName, primary_email: entryEmail, metadata });
       }
       setEntries(parsed);
       setFileName(file.name);
@@ -62,7 +110,7 @@ function UploadModal({ onClose, onUploaded, toast }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Upload Phone List</h2>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Upload Leads</h2>
 
         <div className="space-y-4">
           <div>
@@ -88,7 +136,7 @@ function UploadModal({ onClose, onUploaded, toast }) {
 
           {fileName && (
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {fileName} — <span className="font-medium">{entries.length}</span> numbers found
+              {fileName} — <span className="font-medium">{entries.length}</span> leads found
             </p>
           )}
         </div>
@@ -110,15 +158,17 @@ function UploadModal({ onClose, onUploaded, toast }) {
   );
 }
 
-function EntriesTable({ listId, onBack, toast }) {
-  const [data, setData] = useState({ entries: [], total: 0, page: 1, limit: 20 });
+/* ── LeadsList ── */
+
+function LeadsList({ listId, onBack, onViewProfile, toast }) {
+  const [data, setData] = useState({ entries: [], total: 0, page: 1, limit: 50 });
   const [loading, setLoading] = useState(true);
   const { makeCall } = useCall();
 
   const fetchEntries = async (page = 1) => {
     setLoading(true);
     try {
-      const result = await getListEntries(listId, page);
+      const result = await getListEntries(listId, page, 50);
       setData(result);
     } catch (err) {
       console.error('Failed to load entries:', err);
@@ -160,15 +210,14 @@ function EntriesTable({ listId, onBack, toast }) {
       {loading ? (
         <p className="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
       ) : data.entries.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 text-sm">No entries in this list.</p>
+        <p className="text-gray-500 dark:text-gray-400 text-sm">No leads in this list.</p>
       ) : (
         <>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 text-left text-gray-500 dark:text-gray-400">
-                  <th className="px-4 py-3 font-medium">Phone Number</th>
-                  <th className="px-4 py-3 font-medium">Name</th>
+                  <th className="px-4 py-3 font-medium">Client Name</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium text-right">Action</th>
                 </tr>
@@ -176,11 +225,17 @@ function EntriesTable({ listId, onBack, toast }) {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {data.entries.map((entry) => (
                   <tr key={entry.id} className={entry.called ? 'bg-green-50/50 dark:bg-green-900/10' : ''}>
-                    <td className={`px-4 py-3 font-mono ${entry.called ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-200'}`}>
-                      {entry.phone_number}
-                    </td>
-                    <td className={`px-4 py-3 ${entry.called ? 'text-gray-400 dark:text-gray-500' : 'text-gray-600 dark:text-gray-400'}`}>
-                      {entry.name || '—'}
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => onViewProfile(entry.id)}
+                        className={`text-left font-medium hover:underline ${
+                          entry.called
+                            ? 'text-gray-400 dark:text-gray-500'
+                            : 'text-brand-600 dark:text-brand-400'
+                        }`}
+                      >
+                        {entry.name || entry.phone_number}
+                      </button>
                     </td>
                     <td className="px-4 py-3">
                       {entry.called ? (
@@ -231,11 +286,176 @@ function EntriesTable({ listId, onBack, toast }) {
   );
 }
 
+/* ── ClientProfile ── */
+
+const KNOWN_SECTIONS = {
+  'Trademark Information': [
+    'serial number', 'registration number', 'mark', 'trademark', 'goods/services',
+    'goods and services', 'class', 'filing date', 'registration date', 'status',
+    'mark type', 'standard characters', 'design search code',
+  ],
+  'Legal Information': [
+    'attorney', 'law firm', 'correspondent', 'legal', 'counsel', 'bar',
+    'domestic representative',
+  ],
+  'Contact Information': [
+    'address', 'city', 'state', 'zip', 'country', 'fax', 'website', 'url',
+  ],
+  'Owner Information': [
+    'owner', 'applicant', 'registrant', 'entity type', 'incorporation',
+    'citizenship', 'dba',
+  ],
+};
+
+function categorizeMetadata(metadata) {
+  if (!metadata || typeof metadata !== 'object') return { sections: {}, additional: {} };
+
+  const sections = {};
+  const used = new Set();
+
+  for (const [sectionName, keywords] of Object.entries(KNOWN_SECTIONS)) {
+    const matched = {};
+    for (const [key, value] of Object.entries(metadata)) {
+      const lk = key.toLowerCase();
+      if (keywords.some((kw) => lk.includes(kw))) {
+        matched[key] = value;
+        used.add(key);
+      }
+    }
+    if (Object.keys(matched).length > 0) sections[sectionName] = matched;
+  }
+
+  const additional = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    if (!used.has(key)) additional[key] = value;
+  }
+
+  return { sections, additional };
+}
+
+function formatFieldLabel(key) {
+  return key
+    .replace(/[_-]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function ClientProfile({ entryId, onBack, toast }) {
+  const [entry, setEntry] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const { makeCall } = useCall();
+
+  useEffect(() => {
+    setLoading(true);
+    getEntry(entryId)
+      .then(setEntry)
+      .catch((err) => {
+        console.error('Failed to load entry:', err);
+        toast.error('Failed to load client profile');
+      })
+      .finally(() => setLoading(false));
+  }, [entryId]);
+
+  const handleCall = async () => {
+    if (!entry) return;
+    try {
+      makeCall(entry.phone_number);
+      await markEntryCalled(entry.id);
+      setEntry((prev) => ({ ...prev, called: true, called_at: new Date().toISOString() }));
+    } catch (err) {
+      console.error('Failed to call:', err);
+      toast.error('Failed to initiate call');
+    }
+  };
+
+  if (loading) {
+    return <p className="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>;
+  }
+  if (!entry) {
+    return <p className="text-gray-500 dark:text-gray-400 text-sm">Entry not found.</p>;
+  }
+
+  const { sections, additional } = categorizeMetadata(entry.metadata);
+
+  return (
+    <div>
+      <button onClick={onBack} className="mb-4 text-sm text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1">
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        Back to Leads
+      </button>
+
+      {/* Header Card */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-bold text-gray-800 dark:text-white">
+              {entry.name || 'Unknown'}
+            </h2>
+            <div className="mt-1 space-y-0.5">
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-mono">{entry.phone_number}</p>
+              {entry.primary_email && (
+                <p className="text-sm text-gray-600 dark:text-gray-400">{entry.primary_email}</p>
+              )}
+            </div>
+            {entry.called && (
+              <span className="inline-flex items-center gap-1 mt-2 text-green-600 dark:text-green-400 text-xs font-medium">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                Called{entry.called_at ? ` on ${new Date(entry.called_at).toLocaleDateString()}` : ''}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handleCall}
+            className="px-5 py-2.5 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors shrink-0"
+          >
+            Call
+          </button>
+        </div>
+      </div>
+
+      {/* Metadata Sections */}
+      {Object.entries(sections).map(([sectionName, fields]) => (
+        <div key={sectionName} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-3">{sectionName}</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+            {Object.entries(fields).map(([key, value]) => (
+              <div key={key} className="flex flex-col py-1">
+                <span className="text-xs text-gray-500 dark:text-gray-400">{formatFieldLabel(key)}</span>
+                <span className="text-sm text-gray-800 dark:text-gray-200 break-words">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {Object.keys(additional).length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-4">
+          <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-3">Additional Information</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+            {Object.entries(additional).map(([key, value]) => (
+              <div key={key} className="flex flex-col py-1">
+                <span className="text-xs text-gray-500 dark:text-gray-400">{formatFieldLabel(key)}</span>
+                <span className="text-sm text-gray-800 dark:text-gray-200 break-words">{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ── Main Page ── */
+
 export default function PhoneListsPage() {
   const [lists, setLists] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [selectedListId, setSelectedListId] = useState(null);
+  const [selectedEntryId, setSelectedEntryId] = useState(null);
   const toast = useToast();
 
   const fetchLists = async () => {
@@ -244,8 +464,8 @@ export default function PhoneListsPage() {
       const data = await getPhoneLists();
       setLists(data);
     } catch (err) {
-      console.error('Failed to load phone lists:', err);
-      toast.error('Failed to load phone lists');
+      console.error('Failed to load leads:', err);
+      toast.error('Failed to load leads');
     } finally {
       setLoading(false);
     }
@@ -256,10 +476,13 @@ export default function PhoneListsPage() {
   }, []);
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Delete this phone list and all its entries?')) return;
+    if (!window.confirm('Delete this lead list and all its entries?')) return;
     try {
       await deletePhoneList(id);
-      if (selectedListId === id) setSelectedListId(null);
+      if (selectedListId === id) {
+        setSelectedListId(null);
+        setSelectedEntryId(null);
+      }
       fetchLists();
     } catch (err) {
       console.error('Failed to delete list:', err);
@@ -272,19 +495,40 @@ export default function PhoneListsPage() {
     fetchLists();
   };
 
-  if (selectedListId) {
+  // Client Profile view
+  if (selectedEntryId) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Phone Lists</h1>
-        <EntriesTable listId={selectedListId} onBack={() => setSelectedListId(null)} toast={toast} />
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Leads</h1>
+        <ClientProfile
+          entryId={selectedEntryId}
+          onBack={() => setSelectedEntryId(null)}
+          toast={toast}
+        />
       </div>
     );
   }
 
+  // Leads List view
+  if (selectedListId) {
+    return (
+      <div className="space-y-6">
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Leads</h1>
+        <LeadsList
+          listId={selectedListId}
+          onBack={() => setSelectedListId(null)}
+          onViewProfile={(entryId) => setSelectedEntryId(entryId)}
+          toast={toast}
+        />
+      </div>
+    );
+  }
+
+  // Lists grid view
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Phone Lists</h1>
+        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Leads</h1>
         <button
           onClick={() => setShowUpload(true)}
           className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors"
@@ -297,7 +541,7 @@ export default function PhoneListsPage() {
         <p className="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>
       ) : lists.length === 0 ? (
         <div className="text-center py-12">
-          <p className="text-gray-500 dark:text-gray-400">No phone lists yet. Upload a CSV or text file to get started.</p>
+          <p className="text-gray-500 dark:text-gray-400">No leads yet. Upload a CSV file to get started.</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

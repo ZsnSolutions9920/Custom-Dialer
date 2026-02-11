@@ -71,7 +71,7 @@ export default function Sidebar({ open, onClose, darkMode, onToggleDarkMode }) {
           Contacts
         </NavLink>
         <NavLink to="/phone-lists" className={linkClass} onClick={onClose}>
-          Phone Lists
+          Leads
         </NavLink>
       </nav>
 

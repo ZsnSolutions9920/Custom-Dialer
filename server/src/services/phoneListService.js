@@ -18,11 +18,17 @@ async function createList({ name, agentId, entries }) {
       const placeholders = [];
       let idx = 1;
       for (const entry of entries) {
-        placeholders.push(`($${idx++}, $${idx++}, $${idx++})`);
-        values.push(list.id, entry.phone_number, entry.name || null);
+        placeholders.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`);
+        values.push(
+          list.id,
+          entry.phone_number,
+          entry.name || null,
+          entry.primary_email || null,
+          JSON.stringify(entry.metadata || {})
+        );
       }
       await client.query(
-        `INSERT INTO phone_list_entries (list_id, phone_number, name)
+        `INSERT INTO phone_list_entries (list_id, phone_number, name, primary_email, metadata)
          VALUES ${placeholders.join(', ')}`,
         values
       );
@@ -82,6 +88,14 @@ async function markEntryCalled(entryId) {
   return rows[0] || null;
 }
 
+async function getEntry(entryId) {
+  const { rows } = await pool.query(
+    'SELECT * FROM phone_list_entries WHERE id = $1',
+    [entryId]
+  );
+  return rows[0] || null;
+}
+
 async function deleteList(listId) {
   const { rowCount } = await pool.query('DELETE FROM phone_lists WHERE id = $1', [listId]);
   return rowCount > 0;
@@ -91,6 +105,7 @@ module.exports = {
   createList,
   getLists,
   getListEntries,
+  getEntry,
   markEntryCalled,
   deleteList,
 };
