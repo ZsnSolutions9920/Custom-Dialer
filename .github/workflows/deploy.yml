@@ -18,7 +18,9 @@ jobs:
           password: ${{ secrets.SERVER_PASSWORD }}
           port: ${{ secrets.SERVER_PORT }}
           script: |
+            set -e
             cd ~/custom-dialer/Custom-Dialer/
+            git checkout -- .
             git pull origin main
             cd server && npm install --production && node src/db/migrate.js
             cd ../client && npm install && npm run build
