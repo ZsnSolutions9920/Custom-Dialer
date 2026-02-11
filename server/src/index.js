@@ -23,8 +23,8 @@ const server = http.createServer(app);
 // Middleware
 app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3000'] }));
 app.use(helmet());
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: false, limit: '50mb' }));
+app.use(express.json({ limit: '50mb' }));
 
 // Socket.IO
 const io = setupSocket(server);
