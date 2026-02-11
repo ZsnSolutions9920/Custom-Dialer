@@ -98,6 +98,14 @@ async function getEntry(entryId) {
   return rows[0] || null;
 }
 
+async function updateEntryStatus(entryId, status) {
+  const { rows } = await pool.query(
+    `UPDATE phone_list_entries SET status = $1 WHERE id = $2 RETURNING *`,
+    [status, entryId]
+  );
+  return rows[0] || null;
+}
+
 async function deleteList(listId) {
   const { rowCount } = await pool.query('DELETE FROM phone_lists WHERE id = $1', [listId]);
   return rowCount > 0;
@@ -110,5 +118,6 @@ module.exports = {
   getListEntries,
   getEntry,
   markEntryCalled,
+  updateEntryStatus,
   deleteList,
 };

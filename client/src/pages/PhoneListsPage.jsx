@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { read, utils } from 'xlsx';
-import { getPhoneLists, getListEntries, getEntry, createPhoneList, addListEntries, deletePhoneList, markEntryCalled } from '../api/phoneLists';
+import { getPhoneLists, getListEntries, getEntry, createPhoneList, addListEntries, deletePhoneList, markEntryCalled, updateEntryStatus } from '../api/phoneLists';
 import { useCall } from '../context/CallContext';
 import { useToast } from '../context/ToastContext';
 
@@ -193,6 +193,21 @@ function UploadModal({ onClose, onUploaded, toast }) {
   );
 }
 
+/* ── Lead Status Config ── */
+
+const LEAD_STATUSES = [
+  { value: 'pending',          label: 'Pending',          bg: 'bg-gray-100 dark:bg-gray-700',     text: 'text-gray-600 dark:text-gray-300',   ring: 'focus:ring-gray-400' },
+  { value: 'called',           label: 'Already Called',   bg: 'bg-green-100 dark:bg-green-900/30', text: 'text-green-700 dark:text-green-400', ring: 'focus:ring-green-400' },
+  { value: 'no_answer',        label: 'No Answer',        bg: 'bg-yellow-100 dark:bg-yellow-900/30', text: 'text-yellow-700 dark:text-yellow-400', ring: 'focus:ring-yellow-400' },
+  { value: 'follow_up',        label: 'Follow Up',        bg: 'bg-blue-100 dark:bg-blue-900/30',  text: 'text-blue-700 dark:text-blue-400',   ring: 'focus:ring-blue-400' },
+  { value: 'not_interested',   label: 'Not Interested',   bg: 'bg-red-100 dark:bg-red-900/30',    text: 'text-red-700 dark:text-red-400',     ring: 'focus:ring-red-400' },
+  { value: 'do_not_contact',   label: 'Do Not Contact',   bg: 'bg-gray-300 dark:bg-gray-600',     text: 'text-gray-700 dark:text-gray-200',   ring: 'focus:ring-gray-500' },
+];
+
+function getStatusConfig(value) {
+  return LEAD_STATUSES.find((s) => s.value === value) || LEAD_STATUSES[0];
+}
+
 /* ── LeadsList ── */
 
 function LeadsList({ listId, onBack, onViewProfile, toast }) {
@@ -221,13 +236,30 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
     try {
       makeCall(entry.phone_number);
       await markEntryCalled(entry.id);
+      const newStatus = entry.status === 'pending' ? 'called' : entry.status;
+      if (newStatus !== entry.status) {
+        await updateEntryStatus(entry.id, newStatus);
+      }
       setData((prev) => ({
         ...prev,
-        entries: prev.entries.map((e) => (e.id === entry.id ? { ...e, called: true, called_at: new Date().toISOString() } : e)),
+        entries: prev.entries.map((e) => (e.id === entry.id ? { ...e, called: true, called_at: new Date().toISOString(), status: newStatus } : e)),
       }));
     } catch (err) {
-      console.error('Failed to mark entry as called:', err);
-      toast.error('Failed to mark entry as called');
+      console.error('Failed to initiate call:', err);
+      toast.error('Failed to initiate call');
+    }
+  };
+
+  const handleStatusChange = async (entryId, newStatus) => {
+    try {
+      await updateEntryStatus(entryId, newStatus);
+      setData((prev) => ({
+        ...prev,
+        entries: prev.entries.map((e) => (e.id === entryId ? { ...e, status: newStatus } : e)),
+      }));
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      toast.error('Failed to update status');
     }
   };
 
@@ -258,42 +290,40 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                {data.entries.map((entry) => (
-                  <tr key={entry.id} className={entry.called ? 'bg-green-50/50 dark:bg-green-900/10' : ''}>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => onViewProfile(entry.id)}
-                        className={`text-left font-medium hover:underline ${
-                          entry.called
-                            ? 'text-gray-400 dark:text-gray-500'
-                            : 'text-brand-600 dark:text-brand-400'
-                        }`}
-                      >
-                        {entry.name || entry.phone_number}
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      {entry.called ? (
-                        <span className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 text-xs font-medium">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                          Called
-                        </span>
-                      ) : (
-                        <span className="text-gray-400 dark:text-gray-500 text-xs">Not called</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => handleCall(entry)}
-                        className="px-3 py-1.5 bg-brand-600 text-white text-xs font-medium rounded-lg hover:bg-brand-700 transition-colors"
-                      >
-                        Call
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {data.entries.map((entry) => {
+                  const sc = getStatusConfig(entry.status);
+                  return (
+                    <tr key={entry.id}>
+                      <td className="px-4 py-3">
+                        <button
+                          onClick={() => onViewProfile(entry.id)}
+                          className="text-left font-medium hover:underline text-brand-600 dark:text-brand-400"
+                        >
+                          {entry.name || entry.phone_number}
+                        </button>
+                      </td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={entry.status || 'pending'}
+                          onChange={(e) => handleStatusChange(entry.id, e.target.value)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-semibold border-0 cursor-pointer focus:outline-none focus:ring-2 ${sc.bg} ${sc.text} ${sc.ring}`}
+                        >
+                          {LEAD_STATUSES.map((s) => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => handleCall(entry)}
+                          className="px-3 py-1.5 bg-brand-600 text-white text-xs font-medium rounded-lg hover:bg-brand-700 transition-colors"
+                        >
+                          Call
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

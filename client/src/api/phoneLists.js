@@ -18,5 +18,8 @@ export const getEntry = (entryId) =>
 export const markEntryCalled = (entryId) =>
   api.patch(`/phone-lists/${entryId}/called`).then((r) => r.data);
 
+export const updateEntryStatus = (entryId, status) =>
+  api.patch(`/phone-lists/entries/${entryId}/status`, { status }).then((r) => r.data);
+
 export const deletePhoneList = (id) =>
   api.delete(`/phone-lists/${id}`).then((r) => r.data);
