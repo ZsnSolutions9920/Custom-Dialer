@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
+import { read, utils } from 'xlsx';
 import { getPhoneLists, getListEntries, getEntry, uploadPhoneList, deletePhoneList, markEntryCalled } from '../api/phoneLists';
 import { useCall } from '../context/CallContext';
 import { useToast } from '../context/ToastContext';
 
-/* ── CSV helpers ── */
+/* ── File parsing helpers ── */
 
 function detectDelimiter(line) {
   const tabCount = (line.match(/\t/g) || []).length;
@@ -52,57 +53,75 @@ function UploadModal({ onClose, onUploaded, toast }) {
   const [fileName, setFileName] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const parseFile = (file) => {
-    if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-      toast.error('Excel files are not supported. Please export as CSV first (File → Save As → CSV).');
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const lines = text.split(/\r?\n/).filter((l) => l.trim());
-      if (lines.length === 0) return;
+  const processRows = (headers, dataRows) => {
+    const phoneIdx = detectColumnIndex(headers, ['phone', 'telephone', 'mobile']);
+    const nameIdx = detectColumnIndex(headers, ['client name', 'name', 'applicant']);
+    const emailIdx = detectColumnIndex(headers, ['primary email', 'email']);
 
-      const delimiter = detectDelimiter(lines[0]);
-      const headers = parseLine(lines[0], delimiter).map((h) => h.toLowerCase().replace(/^["']|["']$/g, ''));
+    if (phoneIdx === -1) {
+      toast.error('Could not detect a phone column in the headers');
+      return [];
+    }
+
+    const parsed = [];
+    for (const row of dataRows) {
+      const phone = String(row[phoneIdx] ?? '').replace(/[^\d+\-() ]/g, '').trim();
+      if (!phone) continue;
+
+      const entryName = nameIdx >= 0 ? String(row[nameIdx] || '') || null : null;
+      const entryEmail = emailIdx >= 0 ? String(row[emailIdx] || '') || null : null;
+
+      const metadata = {};
+      headers.forEach((h, i) => {
+        if (i === phoneIdx || i === nameIdx || i === emailIdx) return;
+        const val = row[i];
+        if (val != null && String(val).trim()) metadata[h] = String(val).trim();
+      });
+
+      parsed.push({ phone_number: phone, name: entryName, primary_email: entryEmail, metadata });
+    }
+    return parsed;
+  };
+
+  const parseFile = (file) => {
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    const reader = new FileReader();
+
+    reader.onload = (e) => {
+      let headers, dataRows;
+
+      if (isExcel) {
+        const wb = read(new Uint8Array(e.target.result), { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        if (rows.length < 2) return;
+        headers = rows[0].map((h) => String(h).toLowerCase().trim());
+        dataRows = rows.slice(1);
+      } else {
+        const text = e.target.result;
+        const lines = text.split(/\r?\n/).filter((l) => l.trim());
+        if (lines.length < 2) return;
+        const delimiter = detectDelimiter(lines[0]);
+        headers = parseLine(lines[0], delimiter).map((h) => h.toLowerCase().replace(/^["']|["']$/g, ''));
+        dataRows = lines.slice(1).map((line) => parseLine(line, delimiter).map((p) => p.replace(/^["']|["']$/g, '')));
+      }
+
       const hasHeader = headers.some((h) => h.includes('phone') || h.includes('number') || h.includes('name') || h.includes('email'));
       if (!hasHeader) {
         toast.error('Could not detect column headers. Make sure the first row has column names.');
         return;
       }
 
-      const phoneIdx = detectColumnIndex(headers, ['phone', 'telephone', 'mobile']);
-      const nameIdx = detectColumnIndex(headers, ['client name', 'name', 'applicant']);
-      const emailIdx = detectColumnIndex(headers, ['primary email', 'email']);
-
-      if (phoneIdx === -1) {
-        toast.error('Could not detect a phone column in the headers');
-        return;
-      }
-
-      const dataLines = lines.slice(1);
-      const parsed = [];
-      for (const line of dataLines) {
-        const parts = parseLine(line, delimiter).map((p) => p.replace(/^["']|["']$/g, ''));
-        const phone = parts[phoneIdx]?.replace(/[^\d+\-() ]/g, '').trim();
-        if (!phone) continue;
-
-        const entryName = nameIdx >= 0 ? parts[nameIdx] || null : null;
-        const entryEmail = emailIdx >= 0 ? parts[emailIdx] || null : null;
-
-        const metadata = {};
-        headers.forEach((h, i) => {
-          if (i === phoneIdx || i === nameIdx || i === emailIdx) return;
-          const val = parts[i];
-          if (val) metadata[h] = val;
-        });
-
-        parsed.push({ phone_number: phone, name: entryName, primary_email: entryEmail, metadata });
-      }
+      const parsed = processRows(headers, dataRows);
       setEntries(parsed);
       setFileName(file.name);
     };
-    reader.readAsText(file);
+
+    if (isExcel) {
+      reader.readAsArrayBuffer(file);
+    } else {
+      reader.readAsText(file);
+    }
   };
 
   const handleSubmit = async () => {
@@ -137,10 +156,10 @@ function UploadModal({ onClose, onUploaded, toast }) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">File (.csv, .tsv, or .txt)</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">File (.xlsx, .csv, or .txt)</label>
             <input
               type="file"
-              accept=".csv,.tsv,.txt"
+              accept=".xlsx,.xls,.csv,.tsv,.txt"
               onChange={(e) => e.target.files[0] && parseFile(e.target.files[0])}
               className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 dark:file:bg-brand-900/30 dark:file:text-brand-300 hover:file:bg-brand-100"
             />
