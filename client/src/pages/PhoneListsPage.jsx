@@ -297,8 +297,8 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
         <p className="text-gray-500 dark:text-gray-400 text-sm">No leads in this list.</p>
       ) : (
         <>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
-            <table className="w-full min-w-[700px] text-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto" style={{ transform: 'rotateX(180deg)' }}>
+            <table className="w-full min-w-[700px] text-sm" style={{ transform: 'rotateX(180deg)' }}>
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 text-left text-gray-500 dark:text-gray-400">
                   <th className="px-4 py-3 font-medium">Client Name</th>
