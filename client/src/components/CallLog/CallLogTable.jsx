@@ -37,7 +37,7 @@ export default function CallLogTable({ filters = {} }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-card border border-gray-100 dark:border-gray-700 overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full text-left">
+        <table className="w-full min-w-[800px] text-left">
           <thead className="bg-gray-50/80 dark:bg-gray-700/50 border-b border-gray-100 dark:border-gray-700">
             <tr>
               <th className="px-4 py-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Direction</th>
