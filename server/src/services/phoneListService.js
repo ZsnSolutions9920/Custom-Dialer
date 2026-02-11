@@ -66,7 +66,17 @@ async function getListEntries({ listId, page = 1, limit = 20 }) {
   const { rows } = await pool.query(
     `SELECT * FROM phone_list_entries
      WHERE list_id = $1
-     ORDER BY id ASC
+     ORDER BY
+       CASE status
+         WHEN 'follow_up'       THEN 1
+         WHEN 'no_answer'       THEN 2
+         WHEN 'pending'         THEN 3
+         WHEN 'called'          THEN 4
+         WHEN 'not_interested'  THEN 5
+         WHEN 'do_not_contact'  THEN 6
+         ELSE 7
+       END,
+       id ASC
      LIMIT $2 OFFSET $3`,
     [listId, limit, offset]
   );

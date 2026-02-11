@@ -208,6 +208,23 @@ function getStatusConfig(value) {
   return LEAD_STATUSES.find((s) => s.value === value) || LEAD_STATUSES[0];
 }
 
+/* ── Helpers ── */
+
+const STATUS_PRIORITY = { follow_up: 1, no_answer: 2, pending: 3, called: 4, not_interested: 5, do_not_contact: 6 };
+
+function sortByStatus(entries) {
+  return [...entries].sort((a, b) => (STATUS_PRIORITY[a.status] || 7) - (STATUS_PRIORITY[b.status] || 7) || a.id - b.id);
+}
+
+function getMetaField(metadata, keys) {
+  if (!metadata || typeof metadata !== 'object') return null;
+  for (const [k, v] of Object.entries(metadata)) {
+    const lk = k.toLowerCase();
+    if (keys.some((key) => lk.includes(key))) return v;
+  }
+  return null;
+}
+
 /* ── LeadsList ── */
 
 function LeadsList({ listId, onBack, onViewProfile, toast }) {
@@ -242,7 +259,7 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
       }
       setData((prev) => ({
         ...prev,
-        entries: prev.entries.map((e) => (e.id === entry.id ? { ...e, called: true, called_at: new Date().toISOString(), status: newStatus } : e)),
+        entries: sortByStatus(prev.entries.map((e) => (e.id === entry.id ? { ...e, called: true, called_at: new Date().toISOString(), status: newStatus } : e))),
       }));
     } catch (err) {
       console.error('Failed to initiate call:', err);
@@ -255,7 +272,7 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
       await updateEntryStatus(entryId, newStatus);
       setData((prev) => ({
         ...prev,
-        entries: prev.entries.map((e) => (e.id === entryId ? { ...e, status: newStatus } : e)),
+        entries: sortByStatus(prev.entries.map((e) => (e.id === entryId ? { ...e, status: newStatus } : e))),
       }));
     } catch (err) {
       console.error('Failed to update status:', err);
@@ -280,11 +297,13 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
         <p className="text-gray-500 dark:text-gray-400 text-sm">No leads in this list.</p>
       ) : (
         <>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 text-left text-gray-500 dark:text-gray-400">
                   <th className="px-4 py-3 font-medium">Client Name</th>
+                  <th className="px-4 py-3 font-medium">Trademark</th>
+                  <th className="px-4 py-3 font-medium">Status Date</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium text-right">Action</th>
                 </tr>
@@ -292,6 +311,8 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
               <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                 {data.entries.map((entry) => {
                   const sc = getStatusConfig(entry.status);
+                  const trademark = getMetaField(entry.metadata, ['word mark', 'mark', 'trademark']);
+                  const statusDate = getMetaField(entry.metadata, ['status date']);
                   return (
                     <tr key={entry.id}>
                       <td className="px-4 py-3">
@@ -301,6 +322,12 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
                         >
                           {entry.name || entry.phone_number}
                         </button>
+                      </td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300 max-w-[200px] truncate" title={trademark || ''}>
+                        {trademark || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                        {statusDate || '—'}
                       </td>
                       <td className="px-4 py-3">
                         <select
