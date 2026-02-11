@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getCallLogs } from '../../api/calls';
+import { useToast } from '../../context/ToastContext';
 import CallLogRow from './CallLogRow';
 
 export default function CallLogTable({ filters = {} }) {
+  const toast = useToast();
   const [data, setData] = useState({ calls: [], total: 0, page: 1, limit: 20 });
   const [loading, setLoading] = useState(true);
 
@@ -13,6 +15,7 @@ export default function CallLogTable({ filters = {} }) {
       setData(result);
     } catch (err) {
       console.error('Failed to load call logs:', err);
+      toast.error('Failed to load call logs');
     } finally {
       setLoading(false);
     }

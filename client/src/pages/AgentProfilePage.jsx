@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { getMyProfile, updateMyProfile } from '../api/agents';
 
 export default function AgentProfilePage() {
   const { updateAgent } = useAuth();
+  const toast = useToast();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -30,6 +32,7 @@ export default function AgentProfilePage() {
         });
       } catch (err) {
         console.error('Failed to load profile:', err);
+        toast.error('Failed to load profile');
       } finally {
         setLoading(false);
       }
@@ -54,6 +57,7 @@ export default function AgentProfilePage() {
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       console.error('Failed to update profile:', err);
+      toast.error('Failed to update profile');
     } finally {
       setSaving(false);
     }

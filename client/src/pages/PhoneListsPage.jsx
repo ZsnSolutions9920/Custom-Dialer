@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { getPhoneLists, getListEntries, uploadPhoneList, deletePhoneList, markEntryCalled } from '../api/phoneLists';
 import { useCall } from '../context/CallContext';
+import { useToast } from '../context/ToastContext';
 
-function UploadModal({ onClose, onUploaded }) {
+function UploadModal({ onClose, onUploaded, toast }) {
   const [name, setName] = useState('');
   const [entries, setEntries] = useState([]);
   const [fileName, setFileName] = useState('');
@@ -52,6 +53,7 @@ function UploadModal({ onClose, onUploaded }) {
       onUploaded();
     } catch (err) {
       console.error('Failed to upload list:', err);
+      toast.error('Failed to upload list');
     } finally {
       setSubmitting(false);
     }
@@ -108,7 +110,7 @@ function UploadModal({ onClose, onUploaded }) {
   );
 }
 
-function EntriesTable({ listId, onBack }) {
+function EntriesTable({ listId, onBack, toast }) {
   const [data, setData] = useState({ entries: [], total: 0, page: 1, limit: 20 });
   const [loading, setLoading] = useState(true);
   const { makeCall } = useCall();
@@ -120,6 +122,7 @@ function EntriesTable({ listId, onBack }) {
       setData(result);
     } catch (err) {
       console.error('Failed to load entries:', err);
+      toast.error('Failed to load entries');
     } finally {
       setLoading(false);
     }
@@ -139,6 +142,7 @@ function EntriesTable({ listId, onBack }) {
       }));
     } catch (err) {
       console.error('Failed to mark entry as called:', err);
+      toast.error('Failed to mark entry as called');
     }
   };
 
@@ -232,6 +236,7 @@ export default function PhoneListsPage() {
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [selectedListId, setSelectedListId] = useState(null);
+  const toast = useToast();
 
   const fetchLists = async () => {
     setLoading(true);
@@ -240,6 +245,7 @@ export default function PhoneListsPage() {
       setLists(data);
     } catch (err) {
       console.error('Failed to load phone lists:', err);
+      toast.error('Failed to load phone lists');
     } finally {
       setLoading(false);
     }
@@ -257,6 +263,7 @@ export default function PhoneListsPage() {
       fetchLists();
     } catch (err) {
       console.error('Failed to delete list:', err);
+      toast.error('Failed to delete list');
     }
   };
 
@@ -269,7 +276,7 @@ export default function PhoneListsPage() {
     return (
       <div className="space-y-6">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Phone Lists</h1>
-        <EntriesTable listId={selectedListId} onBack={() => setSelectedListId(null)} />
+        <EntriesTable listId={selectedListId} onBack={() => setSelectedListId(null)} toast={toast} />
       </div>
     );
   }
@@ -343,7 +350,7 @@ export default function PhoneListsPage() {
         </div>
       )}
 
-      {showUpload && <UploadModal onClose={() => setShowUpload(false)} onUploaded={handleUploaded} />}
+      {showUpload && <UploadModal onClose={() => setShowUpload(false)} onUploaded={handleUploaded} toast={toast} />}
     </div>
   );
 }

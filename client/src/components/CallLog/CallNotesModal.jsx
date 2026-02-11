@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { updateCallNotes } from '../../api/calls';
+import { useToast } from '../../context/ToastContext';
 
 const DISPOSITIONS = [
   { value: '', label: 'Select disposition...' },
@@ -12,6 +13,7 @@ const DISPOSITIONS = [
 ];
 
 export default function CallNotesModal({ call, onClose, onSaved }) {
+  const toast = useToast();
   const [notes, setNotes] = useState(call.notes || '');
   const [disposition, setDisposition] = useState(call.disposition || '');
   const [saving, setSaving] = useState(false);
@@ -24,6 +26,7 @@ export default function CallNotesModal({ call, onClose, onSaved }) {
       onClose();
     } catch (err) {
       console.error('Failed to save notes:', err);
+      toast.error('Failed to save notes');
     } finally {
       setSaving(false);
     }

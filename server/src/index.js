@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
 const http = require('http');
 const path = require('path');
 const config = require('./config');
@@ -21,6 +22,7 @@ const server = http.createServer(app);
 
 // Middleware
 app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3000'] }));
+app.use(helmet());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 

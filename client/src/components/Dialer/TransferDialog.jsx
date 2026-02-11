@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useCall } from '../../context/CallContext';
+import { useToast } from '../../context/ToastContext';
 import { useAgentPresence } from '../../hooks/useAgentPresence';
 
 export default function TransferDialog({ onClose }) {
   const { agent } = useAuth();
   const { transfer } = useCall();
+  const toast = useToast();
   const { agents } = useAgentPresence();
   const [transferring, setTransferring] = useState(false);
 
@@ -22,6 +24,7 @@ export default function TransferDialog({ onClose }) {
       }
     } catch (err) {
       console.error('Transfer failed:', err);
+      toast.error('Transfer failed');
     } finally {
       setTransferring(false);
     }

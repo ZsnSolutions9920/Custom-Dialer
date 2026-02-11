@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { getContacts, deleteContact, toggleFavorite } from '../api/contacts';
 import { useCall } from '../context/CallContext';
+import { useToast } from '../context/ToastContext';
 import ContactsList from '../components/Contacts/ContactsList';
 import ContactFormModal from '../components/Contacts/ContactFormModal';
 
@@ -12,6 +13,7 @@ export default function ContactsPage() {
   const [showForm, setShowForm] = useState(false);
   const debounceRef = useRef(null);
   const { makeCall } = useCall();
+  const toast = useToast();
 
   const fetchContacts = async (page = 1, searchVal = search) => {
     setLoading(true);
@@ -20,6 +22,7 @@ export default function ContactsPage() {
       setData(result);
     } catch (err) {
       console.error('Failed to load contacts:', err);
+      toast.error('Failed to load contacts');
     } finally {
       setLoading(false);
     }
@@ -44,6 +47,7 @@ export default function ContactsPage() {
       fetchContacts(data.page, search);
     } catch (err) {
       console.error('Failed to delete contact:', err);
+      toast.error('Failed to delete contact');
     }
   };
 
@@ -53,6 +57,7 @@ export default function ContactsPage() {
       fetchContacts(data.page, search);
     } catch (err) {
       console.error('Failed to toggle favorite:', err);
+      toast.error('Failed to update favorite');
     }
   };
 

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { CallProvider } from './context/CallContext';
+import { ToastProvider } from './context/ToastContext';
 import LoginPage from './components/Auth/LoginPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import AppLayout from './components/Layout/AppLayout';
@@ -15,19 +16,21 @@ import PhoneListsPage from './pages/PhoneListsPage';
 function AuthenticatedApp() {
   return (
     <SocketProvider>
-      <CallProvider>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route index element={<MyDashboardPage />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="profile" element={<AgentProfilePage />} />
-            <Route path="history" element={<CallHistoryPage />} />
-            <Route path="contacts" element={<ContactsPage />} />
-            <Route path="phone-lists" element={<PhoneListsPage />} />
-          </Route>
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </CallProvider>
+      <ToastProvider>
+        <CallProvider>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route index element={<MyDashboardPage />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="profile" element={<AgentProfilePage />} />
+              <Route path="history" element={<CallHistoryPage />} />
+              <Route path="contacts" element={<ContactsPage />} />
+              <Route path="phone-lists" element={<PhoneListsPage />} />
+            </Route>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </CallProvider>
+      </ToastProvider>
     </SocketProvider>
   );
 }
@@ -36,17 +39,19 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route
-            path="/*"
-            element={
-              <ProtectedRoute>
-                <AuthenticatedApp />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
+        <ToastProvider>
+          <Routes>
+            <Route path="/login" element={<LoginPage />} />
+            <Route
+              path="/*"
+              element={
+                <ProtectedRoute>
+                  <AuthenticatedApp />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   );

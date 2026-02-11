@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useRef, useEffect } f
 import { Device } from '@twilio/voice-sdk';
 import { useAuth } from './AuthContext';
 import { useSocket } from './SocketContext';
+import { useToast } from './ToastContext';
 import * as callsApi from '../api/calls';
 
 const CallContext = createContext(null);
@@ -9,6 +10,7 @@ const CallContext = createContext(null);
 export function CallProvider({ children }) {
   const { agent, isAuthenticated } = useAuth();
   const { socket } = useSocket();
+  const toast = useToast();
 
   const deviceRef = useRef(null);
   const [deviceReady, setDeviceReady] = useState(false);
@@ -269,6 +271,7 @@ export function CallProvider({ children }) {
       setCallState(newHeld ? 'on-hold' : 'in-progress');
     } catch (err) {
       console.error('Failed to toggle hold:', err);
+      toast.error('Failed to toggle hold');
     }
   }, [conferenceSid, participantCallSid, isHeld]);
 
@@ -283,6 +286,7 @@ export function CallProvider({ children }) {
       }
     } catch (err) {
       console.error('Error during hangup:', err);
+      toast.error('Error during hangup');
     }
     resetCallState();
   }, [activeCall, conferenceName, resetCallState]);

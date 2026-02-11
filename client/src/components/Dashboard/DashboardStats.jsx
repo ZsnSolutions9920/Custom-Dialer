@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCallStats, getCallVolume, getStatusBreakdown, getAgentLeaderboard } from '../../api/calls';
+import { useToast } from '../../context/ToastContext';
 import StatCard from './StatCard';
 import CallVolumeChart from './CallVolumeChart';
 import StatusBreakdown from './StatusBreakdown';
@@ -31,6 +32,7 @@ const ArrowsIcon = () => (
 );
 
 export default function DashboardStats({ agentId }) {
+  const toast = useToast();
   const [stats, setStats] = useState(null);
   const [volume, setVolume] = useState([]);
   const [breakdown, setBreakdown] = useState([]);
@@ -55,6 +57,7 @@ export default function DashboardStats({ agentId }) {
         if (!agentId) setLeaderboard(l);
       } catch (err) {
         console.error('Failed to load dashboard stats:', err);
+        toast.error('Failed to load dashboard stats');
       } finally {
         setLoading(false);
       }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getCallLogs } from '../../api/calls';
+import { useToast } from '../../context/ToastContext';
 
 function timeAgo(dateStr) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -20,6 +21,7 @@ const STATUS_COLORS = {
 };
 
 export default function RecentCalls({ onCall, agentId }) {
+  const toast = useToast();
   const [calls, setCalls] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -30,6 +32,7 @@ export default function RecentCalls({ onCall, agentId }) {
         setCalls(result.calls || []);
       } catch (err) {
         console.error('Failed to load recent calls:', err);
+        toast.error('Failed to load recent calls');
       } finally {
         setLoading(false);
       }
