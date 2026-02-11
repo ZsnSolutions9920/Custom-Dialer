@@ -22,7 +22,17 @@ const server = http.createServer(app);
 
 // Middleware
 app.use(cors({ origin: ['http://localhost:5173', 'http://localhost:3000'] }));
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      connectSrc: ["'self'", "wss://*.twilio.com", "https://*.twilio.com", "https://sdk.twilio.com"],
+      mediaSrc: ["'self'", "https://sdk.twilio.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+    },
+  },
+}));
 app.use(express.urlencoded({ extended: false, limit: '50mb' }));
 app.use(express.json({ limit: '50mb' }));
 
