@@ -89,10 +89,10 @@ router.post('/voice', validateTwilio, async (req, res) => {
           earlyMedia: true,
           endConferenceOnExit: true,
           statusCallback: `${config.serverBaseUrl}/api/twilio/conference-status`,
-          statusCallbackEvent: 'initiated ringing answered completed',
+          statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
         })
         .then(async (participant) => {
-          logger.info({ conferenceName, participantSid: participant.callSid }, 'External participant added');
+          logger.info({ conferenceName, participantSid: participant.callSid, to: To, from: agentPhone }, 'External participant added');
 
           if (agent) {
             const io = req.app.get('io');
@@ -108,7 +108,7 @@ router.post('/voice', validateTwilio, async (req, res) => {
           }
         })
         .catch((err) => {
-          logger.error(err, 'Failed to add external participant');
+          logger.error({ err, to: To, from: agentPhone, conferenceName, agentId: agent?.id }, 'Failed to add external participant');
         });
 
       res.type('text/xml');
