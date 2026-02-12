@@ -7,7 +7,7 @@ function formatTime(seconds) {
 }
 
 export default function ActiveCallBanner() {
-  const { callState, remoteNumber, callDirection, callTimer, isMuted, isHeld } = useCall();
+  const { callState, remoteNumber, callDirection, callTimer, isMuted, isHeld, hangup } = useCall();
 
   if (callState === 'idle') return null;
 
@@ -36,7 +36,15 @@ export default function ActiveCallBanner() {
         {isMuted && <span className="bg-white bg-opacity-20 px-2 py-0.5 rounded text-xs">Muted</span>}
         {isHeld && <span className="bg-white bg-opacity-20 px-2 py-0.5 rounded text-xs">Held</span>}
       </div>
-      <span className="font-mono">{formatTime(callTimer)}</span>
+      <div className="flex items-center gap-3">
+        <span className="font-mono">{formatTime(callTimer)}</span>
+        <button
+          onClick={hangup}
+          className="px-3 py-1 bg-red-700 hover:bg-red-800 rounded-lg text-xs font-medium transition-colors"
+        >
+          End Call
+        </button>
+      </div>
     </div>
   );
 }
