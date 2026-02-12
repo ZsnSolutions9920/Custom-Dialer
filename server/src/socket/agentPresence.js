@@ -18,6 +18,17 @@ function setupAgentPresence(io) {
     socket.join(`agent:${agentId}`);
     logger.info({ agentId, socketId: socket.id }, 'Agent connected via WebSocket');
 
+    // Auto-set agent to available when they connect (if offline)
+    try {
+      const currentAgent = await agentService.findById(agentId);
+      if (currentAgent && currentAgent.status === 'offline') {
+        await agentService.updateStatus(agentId, 'available');
+        io.emit('agent:status', { id: agentId, status: 'available' });
+      }
+    } catch (err) {
+      logger.error(err, 'Error auto-setting agent available on connect');
+    }
+
     // Broadcast agent list
     const agents = await agentService.listAll();
     io.emit('agents:list', agents);

@@ -67,6 +67,9 @@ export default function Sidebar({ open, onClose, darkMode, onToggleDarkMode }) {
         <NavLink to="/history" className={linkClass} onClick={onClose}>
           Call History
         </NavLink>
+        <NavLink to="/inbound" className={linkClass} onClick={onClose}>
+          Inbound Calls
+        </NavLink>
         <NavLink to="/contacts" className={linkClass} onClick={onClose}>
           Contacts
         </NavLink>
