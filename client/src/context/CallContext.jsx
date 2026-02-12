@@ -37,16 +37,9 @@ export function CallProvider({ children }) {
     }
 
     try {
-      // Request mic permission to populate audio device list (optional —
-      // navigator.mediaDevices is unavailable over plain HTTP)
-      if (navigator.mediaDevices?.getUserMedia) {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-          stream.getTracks().forEach((track) => track.stop());
-        } catch (micErr) {
-          console.warn('Mic permission request failed (will be requested on first call):', micErr);
-        }
-      }
+      // Request mic permission to populate audio device list
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach((track) => track.stop());
 
       const { token } = await callsApi.getTwilioToken();
       const device = new Device(token, {
