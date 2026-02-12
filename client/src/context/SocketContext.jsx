@@ -19,7 +19,7 @@ export function SocketProvider({ children }) {
       return;
     }
 
-    const token = localStorage.getItem('accessToken');
+    const token = sessionStorage.getItem('accessToken');
     const s = io({
       auth: { token },
       transports: ['websocket', 'polling'],

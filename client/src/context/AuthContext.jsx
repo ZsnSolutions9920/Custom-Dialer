@@ -5,7 +5,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [agent, setAgent] = useState(() => {
-    const stored = localStorage.getItem('agent');
+    const stored = sessionStorage.getItem('agent');
     return stored ? JSON.parse(stored) : null;
   });
   const [loading, setLoading] = useState(false);
@@ -16,9 +16,9 @@ export function AuthProvider({ children }) {
     setLoading(true);
     try {
       const data = await authApi.login(username, password);
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-      localStorage.setItem('agent', JSON.stringify(data.agent));
+      sessionStorage.setItem('accessToken', data.accessToken);
+      sessionStorage.setItem('refreshToken', data.refreshToken);
+      sessionStorage.setItem('agent', JSON.stringify(data.agent));
       setAgent(data.agent);
       return data.agent;
     } finally {
@@ -29,7 +29,7 @@ export function AuthProvider({ children }) {
   const updateAgent = useCallback((updatedFields) => {
     setAgent((prev) => {
       const merged = { ...prev, ...updatedFields };
-      localStorage.setItem('agent', JSON.stringify(merged));
+      sessionStorage.setItem('agent', JSON.stringify(merged));
       return merged;
     });
   }, []);
@@ -40,9 +40,9 @@ export function AuthProvider({ children }) {
     } catch {
       // Ignore errors during logout
     }
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('agent');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('agent');
     setAgent(null);
   }, []);
 
