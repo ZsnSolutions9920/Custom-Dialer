@@ -94,10 +94,12 @@ router.get('/:id/entries', async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 20;
+    const search = req.query.search || '';
     const result = await phoneListService.getListEntries({
       listId: req.params.id,
       page,
       limit,
+      search,
     });
     res.json(result);
   } catch (err) {

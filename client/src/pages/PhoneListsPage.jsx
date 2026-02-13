@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { read, utils } from 'xlsx';
 import { getPhoneLists, getListEntries, getEntry, createPhoneList, addListEntries, deletePhoneList, markEntryCalled, updateEntryStatus } from '../api/phoneLists';
 import { useCall } from '../context/CallContext';
@@ -338,13 +338,15 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
   const [data, setData] = useState({ entries: [], total: 0, page: 1, limit: 50 });
   const [loading, setLoading] = useState(true);
   const [followUpTarget, setFollowUpTarget] = useState(null);
+  const [search, setSearch] = useState('');
   const { makeCall } = useCall();
   const { statusUpdateCount } = usePowerDialer();
+  const searchTimerRef = useRef(null);
 
-  const fetchEntries = async (page = 1) => {
+  const fetchEntries = async (page = 1, query = search) => {
     setLoading(true);
     try {
-      const result = await getListEntries(listId, page, 50);
+      const result = await getListEntries(listId, page, 50, query);
       setData(result);
     } catch (err) {
       console.error('Failed to load entries:', err);
@@ -355,13 +357,22 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
   };
 
   useEffect(() => {
-    fetchEntries();
+    fetchEntries(1, '');
   }, [listId]);
 
   // Refetch when power dialer updates a status
   useEffect(() => {
     if (statusUpdateCount > 0) fetchEntries(data.page);
   }, [statusUpdateCount]);
+
+  // Debounced search
+  const handleSearchChange = (value) => {
+    setSearch(value);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => {
+      fetchEntries(1, value);
+    }, 300);
+  };
 
   const handleCall = async (entry) => {
     try {
@@ -417,12 +428,26 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
 
   return (
     <div>
-      <button onClick={onBack} className="mb-4 text-sm text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1">
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        Back to Lists
-      </button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <button onClick={onBack} className="text-sm text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Lists
+        </button>
+        <div className="relative w-full sm:w-72">
+          <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            placeholder="Search by name, trademark, or serial #"
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
+          />
+        </div>
+      </div>
 
       {loading ? (
         <p className="text-gray-500 dark:text-gray-400 text-sm">Loading...</p>

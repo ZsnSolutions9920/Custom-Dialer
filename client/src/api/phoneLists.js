@@ -9,8 +9,8 @@ export const addListEntries = (listId, entries) =>
 export const getPhoneLists = () =>
   api.get('/phone-lists').then((r) => r.data);
 
-export const getListEntries = (listId, page = 1, limit = 50) =>
-  api.get(`/phone-lists/${listId}/entries`, { params: { page, limit } }).then((r) => r.data);
+export const getListEntries = (listId, page = 1, limit = 50, search = '') =>
+  api.get(`/phone-lists/${listId}/entries`, { params: { page, limit, search } }).then((r) => r.data);
 
 export const getEntry = (entryId) =>
   api.get(`/phone-lists/entries/${entryId}`).then((r) => r.data);

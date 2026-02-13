@@ -60,12 +60,21 @@ async function getLists(agentId) {
   return rows;
 }
 
-async function getListEntries({ listId, page = 1, limit = 20 }) {
+async function getListEntries({ listId, page = 1, limit = 20, search = '' }) {
   const offset = (page - 1) * limit;
+  const params = [listId];
+  let searchClause = '';
+
+  if (search.trim()) {
+    const pattern = `%${search.trim()}%`;
+    params.push(pattern);
+    const idx = params.length;
+    searchClause = `AND (name ILIKE $${idx} OR metadata::text ILIKE $${idx})`;
+  }
 
   const { rows } = await pool.query(
     `SELECT * FROM phone_list_entries
-     WHERE list_id = $1
+     WHERE list_id = $1 ${searchClause}
      ORDER BY
        CASE status
          WHEN 'follow_up'       THEN 1
@@ -77,13 +86,13 @@ async function getListEntries({ listId, page = 1, limit = 20 }) {
          ELSE 7
        END,
        id ASC
-     LIMIT $2 OFFSET $3`,
-    [listId, limit, offset]
+     LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    [...params, limit, offset]
   );
 
   const { rows: countRows } = await pool.query(
-    'SELECT COUNT(*) FROM phone_list_entries WHERE list_id = $1',
-    [listId]
+    `SELECT COUNT(*) FROM phone_list_entries WHERE list_id = $1 ${searchClause}`,
+    params
   );
 
   return { entries: rows, total: parseInt(countRows[0].count, 10), page, limit };
