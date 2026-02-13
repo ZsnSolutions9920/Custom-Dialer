@@ -6,6 +6,7 @@ import { getNextDialableEntry, getPowerDialProgress, updateEntryStatus, markEntr
 const PowerDialerContext = createContext(null);
 
 const WRAP_UP_SECONDS = 15;
+const SKIPPED_KEY = (lid) => `power_dialer_skipped_${lid}`;
 
 export function PowerDialerProvider({ children }) {
   const { callState, makeCall, deviceReady } = useCall();
@@ -53,7 +54,8 @@ export function PowerDialerProvider({ children }) {
     try {
       const entry = await getNextDialableEntry(lid, skip);
       if (!entry) {
-        // List exhausted
+        // List exhausted — clean up persisted skips
+        localStorage.removeItem(SKIPPED_KEY(lid));
         setPhase('idle');
         setListId(null);
         setListName('');
@@ -88,11 +90,12 @@ export function PowerDialerProvider({ children }) {
       toast.error('A power dial session is already running');
       return;
     }
+    const saved = JSON.parse(localStorage.getItem(SKIPPED_KEY(lid)) || '[]');
     setListId(lid);
     setListName(name);
-    setSkippedIds([]);
+    setSkippedIds(saved);
     setPhase('dialing');
-    await dialNext(lid, []);
+    await dialNext(lid, saved);
   }, [deviceReady, dialNext, toast]);
 
   // Stop the session
@@ -135,6 +138,7 @@ export function PowerDialerProvider({ children }) {
     }
     const newSkipped = [...skippedIds, currentEntry.id];
     setSkippedIds(newSkipped);
+    localStorage.setItem(SKIPPED_KEY(listId), JSON.stringify(newSkipped));
     await dialNext(listId, newSkipped);
   }, [currentEntry, listId, skippedIds, dialNext]);
 
