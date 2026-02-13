@@ -9,7 +9,7 @@ const WRAP_UP_SECONDS = 15;
 const SKIPPED_KEY = (lid) => `power_dialer_skipped_${lid}`;
 
 export function PowerDialerProvider({ children }) {
-  const { callState, makeCall, deviceReady } = useCall();
+  const { callState, makeCall, hangup, deviceReady } = useCall();
   const toast = useToast();
 
   const [phase, setPhase] = useState('idle'); // idle, dialing, wrap_up, paused
@@ -26,6 +26,7 @@ export function PowerDialerProvider({ children }) {
   const wrapUpIntervalRef = useRef(null);
   const phaseRef = useRef(phase);
   const timerPausedRef = useRef(false);
+  const dialingNextRef = useRef(false); // guard: true while transitioning between calls
 
   // Keep phaseRef in sync
   useEffect(() => {
@@ -51,6 +52,7 @@ export function PowerDialerProvider({ children }) {
 
   // Dial the next entry
   const dialNext = useCallback(async (lid, skip) => {
+    dialingNextRef.current = true;
     try {
       const entry = await getNextDialableEntry(lid, skip);
       if (!entry) {
@@ -67,6 +69,9 @@ export function PowerDialerProvider({ children }) {
       setCurrentEntry(entry);
       setPhase('dialing');
       await refreshProgress(lid);
+      // Disconnect previous call before dialing next
+      await hangup();
+      await new Promise((r) => setTimeout(r, 500));
       makeCall(entry.phone_number);
       await markEntryCalled(entry.id);
     } catch (err) {
@@ -77,8 +82,10 @@ export function PowerDialerProvider({ children }) {
       setListName('');
       setCurrentEntry(null);
       setSkippedIds([]);
+    } finally {
+      dialingNextRef.current = false;
     }
-  }, [makeCall, refreshProgress, toast]);
+  }, [makeCall, hangup, refreshProgress, toast]);
 
   // Start a power dial session
   const startSession = useCallback(async (lid, name) => {
@@ -179,8 +186,8 @@ export function PowerDialerProvider({ children }) {
     const prev = prevCallStateRef.current;
     prevCallStateRef.current = callState;
 
-    if (prev !== 'idle' && callState === 'idle' && sessionActiveRef.current && phaseRef.current === 'dialing') {
-      // Call ended, enter wrap-up
+    if (prev !== 'idle' && callState === 'idle' && sessionActiveRef.current && phaseRef.current === 'dialing' && !dialingNextRef.current) {
+      // Call ended naturally, enter wrap-up
       setPhase('wrap_up');
       setWrapUpTimer(WRAP_UP_SECONDS);
     }
