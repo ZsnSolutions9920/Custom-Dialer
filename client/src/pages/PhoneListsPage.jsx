@@ -339,6 +339,7 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
   const [loading, setLoading] = useState(true);
   const [followUpTarget, setFollowUpTarget] = useState(null);
   const { makeCall } = useCall();
+  const { statusUpdateCount } = usePowerDialer();
 
   const fetchEntries = async (page = 1) => {
     setLoading(true);
@@ -356,6 +357,11 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
   useEffect(() => {
     fetchEntries();
   }, [listId]);
+
+  // Refetch when power dialer updates a status
+  useEffect(() => {
+    if (statusUpdateCount > 0) fetchEntries(data.page);
+  }, [statusUpdateCount]);
 
   const handleCall = async (entry) => {
     try {

@@ -20,6 +20,7 @@ export function PowerDialerProvider({ children }) {
   const [progress, setProgress] = useState({ total: 0, dialed: 0, remaining: 0 });
   const [wrapUpTimer, setWrapUpTimer] = useState(WRAP_UP_SECONDS);
   const [timerPaused, setTimerPaused] = useState(false);
+  const [statusUpdateCount, setStatusUpdateCount] = useState(0);
 
   const prevCallStateRef = useRef(callState);
   const sessionActiveRef = useRef(false);
@@ -129,6 +130,7 @@ export function PowerDialerProvider({ children }) {
     timerPausedRef.current = false;
     try {
       await updateEntryStatus(currentEntry.id, status, followUpAt);
+      setStatusUpdateCount((c) => c + 1);
     } catch (err) {
       console.error('Failed to update entry status:', err);
     }
@@ -240,6 +242,7 @@ export function PowerDialerProvider({ children }) {
         resumeSession,
         pauseTimer,
         resumeTimer,
+        statusUpdateCount,
       }}
     >
       {children}
