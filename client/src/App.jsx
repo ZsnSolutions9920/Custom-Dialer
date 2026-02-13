@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
 import { CallProvider } from './context/CallContext';
+import { PowerDialerProvider } from './context/PowerDialerContext';
 import { ToastProvider } from './context/ToastContext';
 import LoginPage from './components/Auth/LoginPage';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
@@ -20,19 +21,21 @@ function AuthenticatedApp() {
     <SocketProvider>
       <ToastProvider>
         <CallProvider>
-          <Routes>
-            <Route element={<AppLayout />}>
-              <Route index element={<MyDashboardPage />} />
-              <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="profile" element={<AgentProfilePage />} />
-              <Route path="history" element={<CallHistoryPage />} />
-              <Route path="contacts" element={<ContactsPage />} />
-              <Route path="inbound" element={<InboundCallsPage />} />
-              <Route path="phone-lists" element={<PhoneListsPage />} />
-              <Route path="calendar" element={<CalendarPage />} />
-            </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <PowerDialerProvider>
+            <Routes>
+              <Route element={<AppLayout />}>
+                <Route index element={<MyDashboardPage />} />
+                <Route path="dashboard" element={<DashboardPage />} />
+                <Route path="profile" element={<AgentProfilePage />} />
+                <Route path="history" element={<CallHistoryPage />} />
+                <Route path="contacts" element={<ContactsPage />} />
+                <Route path="inbound" element={<InboundCallsPage />} />
+                <Route path="phone-lists" element={<PhoneListsPage />} />
+                <Route path="calendar" element={<CalendarPage />} />
+              </Route>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </PowerDialerProvider>
         </CallProvider>
       </ToastProvider>
     </SocketProvider>

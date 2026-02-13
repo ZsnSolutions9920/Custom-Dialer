@@ -24,5 +24,13 @@ export const updateEntryStatus = (entryId, status, followUpAt = null) =>
 export const getFollowUps = (start, end) =>
   api.get('/phone-lists/follow-ups', { params: { start, end } }).then((r) => r.data);
 
+export const getNextDialableEntry = (listId, skipIds = []) => {
+  const params = skipIds.length > 0 ? { skip: skipIds.join(',') } : {};
+  return api.get(`/phone-lists/${listId}/next-dialable`, { params }).then((r) => r.data);
+};
+
+export const getPowerDialProgress = (listId) =>
+  api.get(`/phone-lists/${listId}/power-dial-progress`).then((r) => r.data);
+
 export const deletePhoneList = (id) =>
   api.delete(`/phone-lists/${id}`).then((r) => r.data);

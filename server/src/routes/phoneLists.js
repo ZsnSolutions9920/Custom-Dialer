@@ -64,6 +64,31 @@ router.get('/follow-ups', async (req, res) => {
   }
 });
 
+// Get next dialable entry for power dialer
+router.get('/:id/next-dialable', async (req, res) => {
+  try {
+    const skipIds = req.query.skip
+      ? req.query.skip.split(',').map((s) => parseInt(s, 10)).filter((n) => !isNaN(n))
+      : [];
+    const entry = await phoneListService.getNextDialableEntry(req.params.id, skipIds);
+    res.json(entry);
+  } catch (err) {
+    logger.error(err, 'Error fetching next dialable entry');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get power dial progress for a list
+router.get('/:id/power-dial-progress', async (req, res) => {
+  try {
+    const progress = await phoneListService.getPowerDialProgress(req.params.id);
+    res.json(progress);
+  } catch (err) {
+    logger.error(err, 'Error fetching power dial progress');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get paginated entries for a list
 router.get('/:id/entries', async (req, res) => {
   try {

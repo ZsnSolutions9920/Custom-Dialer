@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import ActiveCallBanner from '../Dialer/ActiveCallBanner';
 import IncomingCallModal from '../Dialer/IncomingCallModal';
+import PowerDialerOverlay from '../PowerDialer/PowerDialerOverlay';
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -51,6 +52,7 @@ export default function AppLayout() {
         </main>
       </div>
       <IncomingCallModal />
+      <PowerDialerOverlay />
     </div>
   );
 }

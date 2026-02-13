@@ -133,6 +133,38 @@ async function getFollowUps(agentId, start, end) {
   return rows;
 }
 
+async function getNextDialableEntry(listId, skipEntryIds = []) {
+  const skipClause = skipEntryIds.length > 0
+    ? `AND id NOT IN (${skipEntryIds.map((_, i) => `$${i + 2}`).join(', ')})`
+    : '';
+  const params = [listId, ...skipEntryIds];
+  const { rows } = await pool.query(
+    `SELECT * FROM phone_list_entries
+     WHERE list_id = $1
+       AND status IN ('pending', 'no_answer')
+       ${skipClause}
+     ORDER BY
+       CASE status WHEN 'no_answer' THEN 1 WHEN 'pending' THEN 2 END,
+       id ASC
+     LIMIT 1`,
+    params
+  );
+  return rows[0] || null;
+}
+
+async function getPowerDialProgress(listId) {
+  const { rows } = await pool.query(
+    `SELECT
+       COUNT(*)::int AS total,
+       COUNT(CASE WHEN status NOT IN ('pending', 'no_answer') THEN 1 END)::int AS dialed,
+       COUNT(CASE WHEN status IN ('pending', 'no_answer') THEN 1 END)::int AS remaining
+     FROM phone_list_entries
+     WHERE list_id = $1`,
+    [listId]
+  );
+  return rows[0];
+}
+
 async function deleteList(listId) {
   const { rowCount } = await pool.query('DELETE FROM phone_lists WHERE id = $1', [listId]);
   return rowCount > 0;
@@ -147,5 +179,7 @@ module.exports = {
   markEntryCalled,
   updateEntryStatus,
   getFollowUps,
+  getNextDialableEntry,
+  getPowerDialProgress,
   deleteList,
 };

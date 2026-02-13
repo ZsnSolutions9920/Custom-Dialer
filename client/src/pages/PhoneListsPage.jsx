@@ -3,6 +3,7 @@ import { read, utils } from 'xlsx';
 import { getPhoneLists, getListEntries, getEntry, createPhoneList, addListEntries, deletePhoneList, markEntryCalled, updateEntryStatus } from '../api/phoneLists';
 import { useCall } from '../context/CallContext';
 import { useToast } from '../context/ToastContext';
+import { usePowerDialer } from '../context/PowerDialerContext';
 
 /* ── File parsing helpers ── */
 
@@ -721,6 +722,7 @@ export default function PhoneListsPage() {
   const [selectedListId, setSelectedListId] = useState(null);
   const [selectedEntryId, setSelectedEntryId] = useState(null);
   const toast = useToast();
+  const { startSession, isActive: powerDialActive } = usePowerDialer();
 
   const fetchLists = async () => {
     setLoading(true);
@@ -849,6 +851,13 @@ export default function PhoneListsPage() {
                     />
                   </div>
                 )}
+                <button
+                  onClick={() => startSession(list.id, list.name)}
+                  disabled={powerDialActive}
+                  className="w-full mt-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {powerDialActive ? 'Dialing...' : 'Power Dial'}
+                </button>
                 <p className="text-xs text-gray-400 dark:text-gray-500 pt-1">
                   {new Date(list.created_at).toLocaleDateString()}
                 </p>
