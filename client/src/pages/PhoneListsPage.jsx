@@ -220,65 +220,65 @@ function UploadModal({ onClose, onUploaded, toast }) {
 /* ── FollowUpModal ── */
 
 function FollowUpModal({ onConfirm, onCancel }) {
-  const [selected, setSelected] = useState(null);
-  const [custom, setCustom] = useState('');
+  const now = new Date();
+  const todayStr = now.toISOString().slice(0, 10);
+  const [date, setDate] = useState(todayStr);
+  const [hours, setHours] = useState(String(now.getHours()).padStart(2, '0'));
+  const [minutes, setMinutes] = useState(String(now.getMinutes()).padStart(2, '0'));
 
-  const quickOptions = [
-    { label: '20 min', getFuture: () => { const d = new Date(); d.setMinutes(d.getMinutes() + 20); return d; } },
-    { label: '2 hours', getFuture: () => { const d = new Date(); d.setHours(d.getHours() + 2); return d; } },
-    { label: 'Tomorrow 9 AM', getFuture: () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d; } },
-    { label: '2 days 9 AM', getFuture: () => { const d = new Date(); d.setDate(d.getDate() + 2); d.setHours(9, 0, 0, 0); return d; } },
-  ];
-
-  const handleQuickSelect = (option) => {
-    const dt = option.getFuture();
-    setSelected(dt);
-    setCustom('');
-  };
-
-  const handleCustomChange = (e) => {
-    const val = e.target.value;
-    setCustom(val);
-    if (val) {
-      setSelected(new Date(val));
-    } else {
-      setSelected(null);
-    }
-  };
-
-  const nowStr = new Date(Date.now() + 60000).toISOString().slice(0, 16);
+  const selected = date ? new Date(`${date}T${hours}:${minutes}:00`) : null;
+  const isValid = selected && !isNaN(selected.getTime()) && selected > new Date();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Schedule Follow-Up</h2>
 
-        <div className="grid grid-cols-2 gap-2 mb-4">
-          {quickOptions.map((opt) => (
-            <button
-              key={opt.label}
-              onClick={() => handleQuickSelect(opt)}
-              className="px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:border-brand-300 dark:hover:border-brand-600 transition-colors"
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
         <div className="mb-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Custom date & time</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
           <input
-            type="datetime-local"
-            value={custom}
-            min={nowStr}
-            onChange={handleCustomChange}
+            type="date"
+            value={date}
+            min={todayStr}
+            onChange={(e) => setDate(e.target.value)}
             className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100"
           />
         </div>
 
-        {selected && (
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time</label>
+          <div className="flex items-center gap-2">
+            <select
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
+              className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100"
+            >
+              {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0')).map((h) => (
+                <option key={h} value={h}>{h}</option>
+              ))}
+            </select>
+            <span className="text-gray-500 dark:text-gray-400 font-semibold">:</span>
+            <select
+              value={minutes}
+              onChange={(e) => setMinutes(e.target.value)}
+              className="flex-1 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100"
+            >
+              {Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {isValid && (
           <p className="text-sm text-blue-600 dark:text-blue-400 mb-4">
             Scheduled for: {selected.toLocaleString()}
+          </p>
+        )}
+
+        {selected && !isValid && (
+          <p className="text-sm text-red-500 dark:text-red-400 mb-4">
+            Please select a future date and time.
           </p>
         )}
 
@@ -287,8 +287,8 @@ function FollowUpModal({ onConfirm, onCancel }) {
             Cancel
           </button>
           <button
-            onClick={() => selected && onConfirm(selected.toISOString())}
-            disabled={!selected}
+            onClick={() => isValid && onConfirm(selected.toISOString())}
+            disabled={!isValid}
             className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Schedule
