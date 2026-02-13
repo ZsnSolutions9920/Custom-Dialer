@@ -54,13 +54,29 @@ function UploadModal({ onClose, onUploaded, toast }) {
   const [submitting, setSubmitting] = useState(false);
 
   const processRows = (headers, dataRows) => {
-    const phoneIdx = detectColumnIndex(headers, ['phone', 'telephone', 'mobile']);
-    const nameIdx = detectColumnIndex(headers, ['client name', 'name', 'applicant']);
+    const phoneIdx = detectColumnIndex(headers, ['primary phone', 'phone', 'telephone', 'mobile']);
     const emailIdx = detectColumnIndex(headers, ['primary email', 'email']);
+
+    // Detect separate first/last name columns
+    const firstNameIdx = headers.findIndex((h) => h === 'first name');
+    const lastNameIdx = headers.findIndex((h) => h === 'last name');
+    const hasSplitName = firstNameIdx >= 0 && lastNameIdx >= 0;
+
+    // Fall back to single combined name column
+    const nameIdx = hasSplitName ? -1 : detectColumnIndex(headers, ['client name', 'name', 'applicant']);
 
     if (phoneIdx === -1) {
       toast.error('Could not detect a phone column in the headers');
       return [];
+    }
+
+    // Columns to exclude from metadata (they go into dedicated fields)
+    const excludeIdx = new Set([phoneIdx, emailIdx]);
+    if (hasSplitName) {
+      excludeIdx.add(firstNameIdx);
+      excludeIdx.add(lastNameIdx);
+    } else if (nameIdx >= 0) {
+      excludeIdx.add(nameIdx);
     }
 
     const parsed = [];
@@ -68,12 +84,20 @@ function UploadModal({ onClose, onUploaded, toast }) {
       const phone = String(row[phoneIdx] ?? '').replace(/[^\d+\-() ]/g, '').trim();
       if (!phone) continue;
 
-      const entryName = nameIdx >= 0 ? String(row[nameIdx] || '') || null : null;
+      let entryName = null;
+      if (hasSplitName) {
+        const first = String(row[firstNameIdx] || '').trim();
+        const last = String(row[lastNameIdx] || '').trim();
+        entryName = [first, last].filter(Boolean).join(' ') || null;
+      } else if (nameIdx >= 0) {
+        entryName = String(row[nameIdx] || '') || null;
+      }
+
       const entryEmail = emailIdx >= 0 ? String(row[emailIdx] || '') || null : null;
 
       const metadata = {};
       headers.forEach((h, i) => {
-        if (i === phoneIdx || i === nameIdx || i === emailIdx) return;
+        if (excludeIdx.has(i)) return;
         const val = row[i];
         if (val != null && String(val).trim()) metadata[h] = String(val).trim();
       });
@@ -382,20 +406,23 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
 
 const KNOWN_SECTIONS = {
   'Trademark Information': [
-    'serial number', 'registration number', 'mark', 'trademark', 'goods/services',
-    'goods and services', 'class', 'filing date', 'registration date', 'status',
-    'mark type', 'standard characters', 'design search code',
+    'word mark', 'serial number', 'registration number', 'mark', 'trademark',
+    'goods/services', 'goods and services', 'class', 'filing date',
+    'registration date', 'status date', 'mark type', 'standard characters',
+    'design search code', 'filed use', 'mark/status info', 'foreign application',
+    'international application',
   ],
-  'Legal Information': [
+  'Legal / Prosecution': [
     'attorney', 'law firm', 'correspondent', 'legal', 'counsel', 'bar',
-    'domestic representative',
+    'domestic representative', 'prosecution history',
   ],
   'Contact Information': [
-    'address', 'city', 'state', 'zip', 'country', 'fax', 'website', 'url',
+    'secondary email', 'address', 'city', 'state', 'zip', 'country', 'fax',
+    'website', 'url',
   ],
   'Owner Information': [
     'owner', 'applicant', 'registrant', 'entity type', 'incorporation',
-    'citizenship', 'dba',
+    'citizenship', 'dba', 'signatory position',
   ],
 };
 
