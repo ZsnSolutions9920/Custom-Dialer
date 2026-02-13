@@ -18,11 +18,13 @@ export function PowerDialerProvider({ children }) {
   const [skippedIds, setSkippedIds] = useState([]);
   const [progress, setProgress] = useState({ total: 0, dialed: 0, remaining: 0 });
   const [wrapUpTimer, setWrapUpTimer] = useState(WRAP_UP_SECONDS);
+  const [timerPaused, setTimerPaused] = useState(false);
 
   const prevCallStateRef = useRef(callState);
   const sessionActiveRef = useRef(false);
   const wrapUpIntervalRef = useRef(null);
   const phaseRef = useRef(phase);
+  const timerPausedRef = useRef(false);
 
   // Keep phaseRef in sync
   useEffect(() => {
@@ -107,16 +109,15 @@ export function PowerDialerProvider({ children }) {
   }, []);
 
   // Submit a status during wrap-up and dial next
-  const submitStatus = useCallback(async (status) => {
+  const submitStatus = useCallback(async (status, followUpAt = null) => {
     if (!currentEntry || !listId) return;
     if (wrapUpIntervalRef.current) {
       clearInterval(wrapUpIntervalRef.current);
       wrapUpIntervalRef.current = null;
     }
+    setTimerPaused(false);
+    timerPausedRef.current = false;
     try {
-      const followUpAt = status === 'follow_up'
-        ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-        : null;
       await updateEntryStatus(currentEntry.id, status, followUpAt);
     } catch (err) {
       console.error('Failed to update entry status:', err);
@@ -137,13 +138,27 @@ export function PowerDialerProvider({ children }) {
     await dialNext(listId, newSkipped);
   }, [currentEntry, listId, skippedIds, dialNext]);
 
-  // Pause session
+  // Pause the wrap-up timer (keeps phase as wrap_up, just freezes countdown)
+  const pauseTimer = useCallback(() => {
+    setTimerPaused(true);
+    timerPausedRef.current = true;
+  }, []);
+
+  // Resume the wrap-up timer
+  const resumeTimer = useCallback(() => {
+    setTimerPaused(false);
+    timerPausedRef.current = false;
+  }, []);
+
+  // Pause session (manual pause button)
   const pauseSession = useCallback(() => {
-    if (phase === 'wrap_up') {
+    if (phase === 'wrap_up' || phase === 'dialing') {
       if (wrapUpIntervalRef.current) {
         clearInterval(wrapUpIntervalRef.current);
         wrapUpIntervalRef.current = null;
       }
+      setTimerPaused(false);
+      timerPausedRef.current = false;
       setPhase('paused');
     }
   }, [phase]);
@@ -167,14 +182,14 @@ export function PowerDialerProvider({ children }) {
     }
   }, [callState]);
 
-  // Wrap-up countdown
+  // Wrap-up countdown (respects timerPausedRef)
   useEffect(() => {
     if (phase === 'wrap_up') {
       setWrapUpTimer(WRAP_UP_SECONDS);
       wrapUpIntervalRef.current = setInterval(() => {
+        if (timerPausedRef.current) return; // skip tick while paused
         setWrapUpTimer((prev) => {
           if (prev <= 1) {
-            // Timer expired — auto-submit 'called'
             clearInterval(wrapUpIntervalRef.current);
             wrapUpIntervalRef.current = null;
             submitStatus('called');
@@ -208,12 +223,15 @@ export function PowerDialerProvider({ children }) {
         currentEntry,
         progress,
         wrapUpTimer,
+        timerPaused,
         startSession,
         stopSession,
         submitStatus,
         skipEntry,
         pauseSession,
         resumeSession,
+        pauseTimer,
+        resumeTimer,
       }}
     >
       {children}
