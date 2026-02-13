@@ -533,20 +533,48 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
           </div>
 
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-4">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => fetchEntries(p)}
-                  className={`px-3 py-1.5 text-sm rounded-lg ${
-                    p === data.page
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
+            <div className="flex items-center justify-center gap-1.5 mt-4 flex-wrap">
+              <button
+                onClick={() => fetchEntries(data.page - 1)}
+                disabled={data.page === 1}
+                className="px-2.5 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Prev
+              </button>
+              {(() => {
+                const pages = [];
+                const cur = data.page;
+                const addPage = (p) => pages.push(p);
+                addPage(1);
+                if (cur > 3) pages.push('...');
+                for (let p = Math.max(2, cur - 1); p <= Math.min(totalPages - 1, cur + 1); p++) addPage(p);
+                if (cur < totalPages - 2) pages.push('...');
+                if (totalPages > 1) addPage(totalPages);
+                return pages.map((p, i) =>
+                  p === '...' ? (
+                    <span key={`dot-${i}`} className="px-1.5 text-sm text-gray-400 dark:text-gray-500">...</span>
+                  ) : (
+                    <button
+                      key={p}
+                      onClick={() => fetchEntries(p)}
+                      className={`px-3 py-1.5 text-sm rounded-lg ${
+                        p === cur
+                          ? 'bg-brand-600 text-white'
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  )
+                );
+              })()}
+              <button
+                onClick={() => fetchEntries(data.page + 1)}
+                disabled={data.page === totalPages}
+                className="px-2.5 py-1.5 text-sm rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
             </div>
           )}
         </>
