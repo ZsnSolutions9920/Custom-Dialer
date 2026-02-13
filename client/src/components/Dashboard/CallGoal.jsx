@@ -5,7 +5,7 @@ export default function CallGoal() {
   const [count, setCount] = useState(0);
   const [goal, setGoal] = useState(() => {
     const saved = localStorage.getItem('callGoal');
-    return saved ? parseInt(saved, 10) : 50;
+    return saved ? parseInt(saved, 10) : 500;
   });
   const [editing, setEditing] = useState(false);
   const [goalInput, setGoalInput] = useState(goal.toString());
