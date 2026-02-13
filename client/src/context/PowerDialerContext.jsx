@@ -136,18 +136,15 @@ export function PowerDialerProvider({ children }) {
     await dialNext(listId, skippedIds);
   }, [currentEntry, listId, skippedIds, dialNext]);
 
-  // Skip current entry
+  // Skip current entry — hangs up and enters wrap-up for disposition
   const skipEntry = useCallback(async () => {
-    if (!currentEntry || !listId) return;
-    if (wrapUpIntervalRef.current) {
-      clearInterval(wrapUpIntervalRef.current);
-      wrapUpIntervalRef.current = null;
-    }
-    const newSkipped = [...skippedIds, currentEntry.id];
-    setSkippedIds(newSkipped);
-    localStorage.setItem(SKIPPED_KEY(listId), JSON.stringify(newSkipped));
-    await dialNext(listId, newSkipped);
-  }, [currentEntry, listId, skippedIds, dialNext]);
+    if (!currentEntry) return;
+    // Set phase ref synchronously so call-end detection doesn't double-trigger
+    phaseRef.current = 'wrap_up';
+    setPhase('wrap_up');
+    setWrapUpTimer(WRAP_UP_SECONDS);
+    await hangup();
+  }, [currentEntry, hangup]);
 
   // Pause the wrap-up timer (keeps phase as wrap_up, just freezes countdown)
   const pauseTimer = useCallback(() => {

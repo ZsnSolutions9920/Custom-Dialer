@@ -227,16 +227,10 @@ export default function PowerDialerOverlay() {
         {/* Wrap-up phase */}
         {phase === 'wrap_up' && !showFollowUp && (
           <div>
-            <div className="flex items-center justify-between mb-3">
+            <div className="mb-3">
               <span className={`text-xs font-semibold ${timerPaused ? 'text-yellow-600 dark:text-yellow-400' : 'text-orange-600 dark:text-orange-400'}`}>
                 {timerPaused ? 'Timer paused' : `Wrap-up: ${wrapUpTimer}s`}
               </span>
-              <button
-                onClick={skipEntry}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-              >
-                Skip
-              </button>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {STATUS_BUTTONS.map(({ status, label, bg, darkBg }) => (
