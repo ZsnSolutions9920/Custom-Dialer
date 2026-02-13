@@ -55,30 +55,31 @@ export default function Sidebar({ open, onClose, darkMode, onToggleDarkMode }) {
       </div>
 
       <nav className="flex-1 px-3 py-6 space-y-1">
+        <NavLink to="/profile" className={linkClass} onClick={onClose}>
+          My Profile
+        </NavLink>
         <NavLink to="/" end className={linkClass} onClick={onClose}>
           My Dashboard
         </NavLink>
         <NavLink to="/dashboard" className={linkClass} onClick={onClose}>
           Overall Dashboard
         </NavLink>
-        <NavLink to="/profile" className={linkClass} onClick={onClose}>
-          My Profile
+        <NavLink to="/phone-lists" className={linkClass} onClick={onClose}>
+          Leads
         </NavLink>
-        <NavLink to="/history" className={linkClass} onClick={onClose}>
-          Call History
-        </NavLink>
+         <NavLink to="/calendar" className={linkClass} onClick={onClose}>
+          Calender
+        </NavLink> 
         <NavLink to="/inbound" className={linkClass} onClick={onClose}>
           Inbound Calls
         </NavLink>
         <NavLink to="/contacts" className={linkClass} onClick={onClose}>
           Contacts
         </NavLink>
-        <NavLink to="/phone-lists" className={linkClass} onClick={onClose}>
-          Leads
+        <NavLink to="/history" className={linkClass} onClick={onClose}>
+          Call History
         </NavLink>
-        <NavLink to="/calendar" className={linkClass} onClick={onClose}>
-          Follow-Ups
-        </NavLink>
+       
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-2.5">
