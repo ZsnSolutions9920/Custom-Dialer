@@ -117,7 +117,7 @@ function UploadModal({ onClose, onUploaded, toast }) {
       if (isExcel) {
         const wb = read(new Uint8Array(e.target.result), { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
-        const rows = utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        const rows = utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
         if (rows.length < 2) return;
         headers = rows[0].map((h) => String(h).toLowerCase().trim());
         dataRows = rows.slice(1);
