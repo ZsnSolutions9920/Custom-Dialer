@@ -76,6 +76,9 @@ export default function Sidebar({ open, onClose, darkMode, onToggleDarkMode }) {
         <NavLink to="/phone-lists" className={linkClass} onClick={onClose}>
           Leads
         </NavLink>
+        <NavLink to="/calendar" className={linkClass} onClick={onClose}>
+          Follow-Ups
+        </NavLink>
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-2.5">

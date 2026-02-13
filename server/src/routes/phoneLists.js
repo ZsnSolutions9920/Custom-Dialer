@@ -49,6 +49,21 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Get follow-ups for the authenticated agent within a date range
+router.get('/follow-ups', async (req, res) => {
+  try {
+    const { start, end } = req.query;
+    if (!start || !end) {
+      return res.status(400).json({ error: 'start and end query params are required' });
+    }
+    const followUps = await phoneListService.getFollowUps(req.agent.id, start, end);
+    res.json(followUps);
+  } catch (err) {
+    logger.error(err, 'Error fetching follow-ups');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get paginated entries for a list
 router.get('/:id/entries', async (req, res) => {
   try {
@@ -81,12 +96,17 @@ router.get('/entries/:entryId', async (req, res) => {
 // Update entry status
 router.patch('/entries/:entryId/status', async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, followUpAt } = req.body;
     const valid = ['pending', 'called', 'no_answer', 'follow_up', 'not_interested', 'do_not_contact'];
     if (!valid.includes(status)) {
       return res.status(400).json({ error: `Invalid status. Must be one of: ${valid.join(', ')}` });
     }
-    const entry = await phoneListService.updateEntryStatus(req.params.entryId, status);
+    if (status === 'follow_up') {
+      if (!followUpAt || isNaN(new Date(followUpAt).getTime())) {
+        return res.status(400).json({ error: 'A valid followUpAt date is required for follow_up status' });
+      }
+    }
+    const entry = await phoneListService.updateEntryStatus(req.params.entryId, status, followUpAt || null);
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
     res.json(entry);
   } catch (err) {

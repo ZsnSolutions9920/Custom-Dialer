@@ -217,6 +217,88 @@ function UploadModal({ onClose, onUploaded, toast }) {
   );
 }
 
+/* ── FollowUpModal ── */
+
+function FollowUpModal({ onConfirm, onCancel }) {
+  const [selected, setSelected] = useState(null);
+  const [custom, setCustom] = useState('');
+
+  const quickOptions = [
+    { label: '20 min', getFuture: () => { const d = new Date(); d.setMinutes(d.getMinutes() + 20); return d; } },
+    { label: '2 hours', getFuture: () => { const d = new Date(); d.setHours(d.getHours() + 2); return d; } },
+    { label: 'Tomorrow 9 AM', getFuture: () => { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); return d; } },
+    { label: '2 days 9 AM', getFuture: () => { const d = new Date(); d.setDate(d.getDate() + 2); d.setHours(9, 0, 0, 0); return d; } },
+  ];
+
+  const handleQuickSelect = (option) => {
+    const dt = option.getFuture();
+    setSelected(dt);
+    setCustom('');
+  };
+
+  const handleCustomChange = (e) => {
+    const val = e.target.value;
+    setCustom(val);
+    if (val) {
+      setSelected(new Date(val));
+    } else {
+      setSelected(null);
+    }
+  };
+
+  const nowStr = new Date(Date.now() + 60000).toISOString().slice(0, 16);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Schedule Follow-Up</h2>
+
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {quickOptions.map((opt) => (
+            <button
+              key={opt.label}
+              onClick={() => handleQuickSelect(opt)}
+              className="px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:border-brand-300 dark:hover:border-brand-600 transition-colors"
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Custom date & time</label>
+          <input
+            type="datetime-local"
+            value={custom}
+            min={nowStr}
+            onChange={handleCustomChange}
+            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100"
+          />
+        </div>
+
+        {selected && (
+          <p className="text-sm text-blue-600 dark:text-blue-400 mb-4">
+            Scheduled for: {selected.toLocaleString()}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-3">
+          <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+            Cancel
+          </button>
+          <button
+            onClick={() => selected && onConfirm(selected.toISOString())}
+            disabled={!selected}
+            className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Schedule
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Lead Status Config ── */
 
 const LEAD_STATUSES = [
@@ -254,6 +336,7 @@ function getMetaField(metadata, keys) {
 function LeadsList({ listId, onBack, onViewProfile, toast }) {
   const [data, setData] = useState({ entries: [], total: 0, page: 1, limit: 50 });
   const [loading, setLoading] = useState(true);
+  const [followUpTarget, setFollowUpTarget] = useState(null);
   const { makeCall } = useCall();
 
   const fetchEntries = async (page = 1) => {
@@ -292,15 +375,34 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
   };
 
   const handleStatusChange = async (entryId, newStatus) => {
+    if (newStatus === 'follow_up') {
+      setFollowUpTarget(entryId);
+      return;
+    }
     try {
       await updateEntryStatus(entryId, newStatus);
       setData((prev) => ({
         ...prev,
-        entries: sortByStatus(prev.entries.map((e) => (e.id === entryId ? { ...e, status: newStatus } : e))),
+        entries: sortByStatus(prev.entries.map((e) => (e.id === entryId ? { ...e, status: newStatus, follow_up_at: null } : e))),
       }));
     } catch (err) {
       console.error('Failed to update status:', err);
       toast.error('Failed to update status');
+    }
+  };
+
+  const handleFollowUpConfirm = async (followUpAt) => {
+    const entryId = followUpTarget;
+    setFollowUpTarget(null);
+    try {
+      await updateEntryStatus(entryId, 'follow_up', followUpAt);
+      setData((prev) => ({
+        ...prev,
+        entries: sortByStatus(prev.entries.map((e) => (e.id === entryId ? { ...e, status: 'follow_up', follow_up_at: followUpAt } : e))),
+      }));
+    } catch (err) {
+      console.error('Failed to schedule follow-up:', err);
+      toast.error('Failed to schedule follow-up');
     }
   };
 
@@ -377,6 +479,11 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
                             <option key={s.value} value={s.value}>{s.label}</option>
                           ))}
                         </select>
+                        {entry.status === 'follow_up' && entry.follow_up_at && (
+                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                            {new Date(entry.follow_up_at).toLocaleString()}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
@@ -411,6 +518,13 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
             </div>
           )}
         </>
+      )}
+
+      {followUpTarget && (
+        <FollowUpModal
+          onConfirm={handleFollowUpConfirm}
+          onCancel={() => setFollowUpTarget(null)}
+        />
       )}
     </div>
   );

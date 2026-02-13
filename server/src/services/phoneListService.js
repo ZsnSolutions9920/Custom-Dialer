@@ -108,12 +108,29 @@ async function getEntry(entryId) {
   return rows[0] || null;
 }
 
-async function updateEntryStatus(entryId, status) {
+async function updateEntryStatus(entryId, status, followUpAt = null) {
+  const effectiveFollowUp = status === 'follow_up' ? followUpAt : null;
   const { rows } = await pool.query(
-    `UPDATE phone_list_entries SET status = $1 WHERE id = $2 RETURNING *`,
-    [status, entryId]
+    `UPDATE phone_list_entries SET status = $1, follow_up_at = $2 WHERE id = $3 RETURNING *`,
+    [status, effectiveFollowUp, entryId]
   );
   return rows[0] || null;
+}
+
+async function getFollowUps(agentId, start, end) {
+  const { rows } = await pool.query(
+    `SELECT ple.id, ple.name, ple.phone_number, ple.follow_up_at, ple.status,
+            pl.name AS list_name
+     FROM phone_list_entries ple
+     JOIN phone_lists pl ON pl.id = ple.list_id
+     WHERE pl.agent_id = $1
+       AND ple.follow_up_at >= $2
+       AND ple.follow_up_at < $3
+       AND ple.status = 'follow_up'
+     ORDER BY ple.follow_up_at ASC`,
+    [agentId, start, end]
+  );
+  return rows;
 }
 
 async function deleteList(listId) {
@@ -129,5 +146,6 @@ module.exports = {
   getEntry,
   markEntryCalled,
   updateEntryStatus,
+  getFollowUps,
   deleteList,
 };

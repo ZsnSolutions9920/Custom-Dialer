@@ -13,6 +13,7 @@ import CallHistoryPage from './pages/CallHistoryPage';
 import ContactsPage from './pages/ContactsPage';
 import PhoneListsPage from './pages/PhoneListsPage';
 import InboundCallsPage from './pages/InboundCallsPage';
+import CalendarPage from './pages/CalendarPage';
 
 function AuthenticatedApp() {
   return (
@@ -28,6 +29,7 @@ function AuthenticatedApp() {
               <Route path="contacts" element={<ContactsPage />} />
               <Route path="inbound" element={<InboundCallsPage />} />
               <Route path="phone-lists" element={<PhoneListsPage />} />
+              <Route path="calendar" element={<CalendarPage />} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
