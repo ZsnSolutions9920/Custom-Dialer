@@ -140,7 +140,7 @@ export default function PowerDialerOverlay() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+    <div className="fixed bottom-4 right-4 z-50 w-96 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 bg-brand-600 dark:bg-brand-700 text-white">
         <div className="flex items-center gap-2">

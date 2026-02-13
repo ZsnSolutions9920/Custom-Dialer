@@ -134,8 +134,11 @@ export function PowerDialerProvider({ children }) {
     } catch (err) {
       console.error('Failed to update entry status:', err);
     }
-    // Dial next
-    await dialNext(listId, skippedIds);
+    // Always exclude current entry so we never re-dial the same person
+    const nextSkip = skippedIds.includes(currentEntry.id) ? skippedIds : [...skippedIds, currentEntry.id];
+    setSkippedIds(nextSkip);
+    localStorage.setItem(SKIPPED_KEY(listId), JSON.stringify(nextSkip));
+    await dialNext(listId, nextSkip);
   }, [currentEntry, listId, skippedIds, dialNext]);
 
   // Skip current entry — hangs up and enters wrap-up for disposition
