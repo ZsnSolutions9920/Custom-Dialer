@@ -351,7 +351,7 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
                         {trademark || '—'}
                       </td>
                       <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                        {statusDate || '—'}
+                        {statusDate ? formatFieldValue('date', statusDate) : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <select
@@ -458,6 +458,23 @@ function formatFieldLabel(key) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+// Convert Excel serial number to a readable date string
+function formatFieldValue(key, value) {
+  if (key.toLowerCase().includes('date')) {
+    const num = Number(value);
+    if (num > 10000 && num < 100000) {
+      // Excel serial: days since Jan 0, 1900 (with the Lotus 1-2-3 leap year bug)
+      const utcDays = num - 25569; // offset from Unix epoch
+      const ms = utcDays * 86400000;
+      const d = new Date(ms);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: '2-digit' });
+      }
+    }
+  }
+  return value;
+}
+
 function ClientProfile({ entryId, onBack, toast }) {
   const [entry, setEntry] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -543,7 +560,7 @@ function ClientProfile({ entryId, onBack, toast }) {
             {Object.entries(fields).map(([key, value]) => (
               <div key={key} className="flex flex-col py-1">
                 <span className="text-xs text-gray-500 dark:text-gray-400">{formatFieldLabel(key)}</span>
-                <span className="text-sm text-gray-800 dark:text-gray-200 break-words">{value}</span>
+                <span className="text-sm text-gray-800 dark:text-gray-200 break-words">{formatFieldValue(key, value)}</span>
               </div>
             ))}
           </div>
@@ -557,7 +574,7 @@ function ClientProfile({ entryId, onBack, toast }) {
             {Object.entries(additional).map(([key, value]) => (
               <div key={key} className="flex flex-col py-1">
                 <span className="text-xs text-gray-500 dark:text-gray-400">{formatFieldLabel(key)}</span>
-                <span className="text-sm text-gray-800 dark:text-gray-200 break-words">{value}</span>
+                <span className="text-sm text-gray-800 dark:text-gray-200 break-words">{formatFieldValue(key, value)}</span>
               </div>
             ))}
           </div>
