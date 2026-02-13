@@ -322,11 +322,12 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
       ) : (
         <>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
-            <table className="w-full min-w-[700px] text-sm">
+            <table className="w-full min-w-[800px] text-sm">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 text-left text-gray-500 dark:text-gray-400">
                   <th className="px-4 py-3 font-medium">Client Name</th>
                   <th className="px-4 py-3 font-medium">Trademark</th>
+                  <th className="px-4 py-3 font-medium">Serial Number</th>
                   <th className="px-4 py-3 font-medium">Status Date</th>
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium text-right">Action</th>
@@ -336,6 +337,7 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
                 {data.entries.map((entry) => {
                   const sc = getStatusConfig(entry.status);
                   const trademark = getMetaField(entry.metadata, ['word mark', 'mark', 'trademark']);
+                  const serialNumber = getMetaField(entry.metadata, ['serial number']);
                   const statusDate = getMetaField(entry.metadata, ['status date']);
                   return (
                     <tr key={entry.id}>
@@ -349,6 +351,18 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
                       </td>
                       <td className="px-4 py-3 text-gray-700 dark:text-gray-300 max-w-[200px] truncate" title={trademark || ''}>
                         {trademark || '—'}
+                      </td>
+                      <td className="px-4 py-3">
+                        {serialNumber ? (
+                          <a
+                            href={`https://tsdr.uspto.gov/#caseNumber=${serialNumber}&caseSearchType=US_APPLICATION&caseType=DEFAULT&searchType=statusSearch`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-brand-600 dark:text-brand-400 hover:underline font-medium"
+                          >
+                            {serialNumber}
+                          </a>
+                        ) : '—'}
                       </td>
                       <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
                         {statusDate ? formatFieldValue('date', statusDate) : '—'}
