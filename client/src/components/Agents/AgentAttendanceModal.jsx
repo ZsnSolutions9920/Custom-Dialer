@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import { getHistory } from '../../api/attendance';
 
 function formatDatetime(iso) {
@@ -30,6 +31,18 @@ export default function AgentAttendanceModal({ agent, onClose }) {
       .finally(() => setLoading(false));
   }, [agent.id]);
 
+  const handleExport = () => {
+    const rows = entries.map((e) => ({
+      'Clock In': formatDatetime(e.clock_in),
+      'Clock Out': formatDatetime(e.clock_out),
+      'Duration': formatDuration(e.duration_seconds),
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+    XLSX.writeFile(wb, `${agent.display_name} - Attendance.xlsx`);
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
@@ -40,12 +53,22 @@ export default function AgentAttendanceModal({ agent, onClose }) {
           <h3 className="font-semibold text-gray-800 dark:text-white">
             Attendance — {agent.display_name}
           </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none"
-          >
-            &times;
-          </button>
+          <div className="flex items-center gap-2">
+            {entries.length > 0 && (
+              <button
+                onClick={handleExport}
+                className="px-3 py-1 text-xs font-medium text-white bg-brand-500 rounded-lg hover:bg-brand-600 transition-colors"
+              >
+                Export Excel
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xl leading-none"
+            >
+              &times;
+            </button>
+          </div>
         </div>
 
         <div className="overflow-auto flex-1 p-5">
