@@ -1,4 +1,3 @@
-import AgentPresenceList from '../components/Agents/AgentPresenceList';
 import DashboardStats from '../components/Dashboard/DashboardStats';
 import RecentCalls from '../components/Dashboard/RecentCalls';
 import LiveCallMonitor from '../components/Dashboard/LiveCallMonitor';
@@ -18,11 +17,9 @@ export default function DashboardPage() {
       <DashboardStats />
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <AgentPresenceList />
+        <LiveCallMonitor />
         <RecentCalls onCall={makeCall} />
       </div>
-
-      <LiveCallMonitor />
     </div>
     </AdminGate>
   );
