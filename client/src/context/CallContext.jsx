@@ -286,7 +286,6 @@ export function CallProvider({ children }) {
       }
     } catch (err) {
       console.error('Error during hangup:', err);
-      toast.error('Error during hangup');
     }
     resetCallState();
   }, [activeCall, conferenceName, resetCallState]);
