@@ -62,15 +62,15 @@ export default function TransferDialog({ onClose }) {
                 <div className="flex gap-1">
                   <button
                     onClick={() => handleTransfer(a.id, 'warm')}
-                    disabled={transferring}
-                    className="px-3 py-1 text-xs bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400 rounded-md hover:bg-brand-200 dark:hover:bg-brand-900/50 disabled:opacity-50 font-medium transition-colors"
+                    disabled={transferring || a.status !== 'available'}
+                    className="px-3 py-1 text-xs bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400 rounded-md hover:bg-brand-200 dark:hover:bg-brand-900/50 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                   >
                     Warm
                   </button>
                   <button
                     onClick={() => handleTransfer(a.id, 'cold')}
-                    disabled={transferring}
-                    className="px-3 py-1 text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-md hover:bg-orange-200 dark:hover:bg-orange-900/50 disabled:opacity-50 font-medium transition-colors"
+                    disabled={transferring || a.status !== 'available'}
+                    className="px-3 py-1 text-xs bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 rounded-md hover:bg-orange-200 dark:hover:bg-orange-900/50 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors"
                   >
                     Cold
                   </button>

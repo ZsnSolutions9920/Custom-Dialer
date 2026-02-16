@@ -318,6 +318,7 @@ export function CallProvider({ children }) {
       resetCallState();
     } catch (err) {
       console.error('Complete transfer failed:', err);
+      toast.error('Failed to complete transfer');
     }
   }, [conferenceName, transferInProgress, activeCall, resetCallState]);
 

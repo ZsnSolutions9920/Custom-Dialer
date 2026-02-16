@@ -364,6 +364,15 @@ router.post('/transfer', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Target agent not found' });
     }
 
+    if (targetAgent.status !== 'available') {
+      return res.status(409).json({ error: `Target agent is ${targetAgent.status.replace('_', ' ')}` });
+    }
+
+    const targetActiveCall = await callService.getActiveCallByAgent(targetAgentId);
+    if (targetActiveCall) {
+      return res.status(409).json({ error: 'Target agent is already on a call' });
+    }
+
     if (!req.agent.twilioPhoneNumber) {
       return res.status(400).json({ error: 'No Twilio phone number assigned to your account' });
     }
