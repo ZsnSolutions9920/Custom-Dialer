@@ -1,4 +1,3 @@
-import DialerPanel from '../components/Dialer/DialerPanel';
 import AgentPresenceList from '../components/Agents/AgentPresenceList';
 import DashboardStats from '../components/Dashboard/DashboardStats';
 import RecentCalls from '../components/Dashboard/RecentCalls';
@@ -18,8 +17,7 @@ export default function DashboardPage() {
 
       <DashboardStats />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <DialerPanel />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <AgentPresenceList />
         <RecentCalls onCall={makeCall} />
       </div>
