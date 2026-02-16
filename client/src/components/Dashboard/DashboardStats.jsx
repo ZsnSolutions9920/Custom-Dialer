@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { getCallStats, getCallVolume, getStatusBreakdown, getAgentLeaderboard } from '../../api/calls';
+import { getCallStats, getCallVolume, getStatusBreakdown } from '../../api/calls';
 import { useToast } from '../../context/ToastContext';
 import StatCard from './StatCard';
 import CallVolumeChart from './CallVolumeChart';
 import StatusBreakdown from './StatusBreakdown';
-import AgentLeaderboard from './AgentLeaderboard';
 import CallGoal from './CallGoal';
 
 const PhoneIcon = () => (
@@ -36,25 +35,19 @@ export default function DashboardStats({ agentId }) {
   const [stats, setStats] = useState(null);
   const [volume, setVolume] = useState([]);
   const [breakdown, setBreakdown] = useState([]);
-  const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const promises = [
+        const [s, v, b] = await Promise.all([
           getCallStats(7, agentId),
           getCallVolume(7, agentId),
           getStatusBreakdown(7, agentId),
-        ];
-        if (!agentId) {
-          promises.push(getAgentLeaderboard());
-        }
-        const [s, v, b, l] = await Promise.all(promises);
+        ]);
         setStats(s);
         setVolume(v);
         setBreakdown(b);
-        if (!agentId) setLeaderboard(l);
       } catch (err) {
         console.error('Failed to load dashboard stats:', err);
         toast.error('Failed to load dashboard stats');
@@ -121,8 +114,6 @@ export default function DashboardStats({ agentId }) {
         <StatusBreakdown data={breakdown} />
         <CallGoal />
       </div>
-
-      {!agentId && <AgentLeaderboard data={leaderboard} />}
     </div>
   );
 }
