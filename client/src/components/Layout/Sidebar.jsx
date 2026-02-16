@@ -62,7 +62,7 @@ export default function Sidebar({ open, onClose, darkMode, onToggleDarkMode }) {
           My Dashboard
         </NavLink>
         <NavLink to="/dashboard" className={linkClass} onClick={onClose}>
-          Overall Dashboard
+          Admin Dashboard
         </NavLink>
         <NavLink to="/phone-lists" className={linkClass} onClick={onClose}>
           Leads
