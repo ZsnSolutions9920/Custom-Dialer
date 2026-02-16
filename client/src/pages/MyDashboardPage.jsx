@@ -5,6 +5,7 @@ import DashboardStats from '../components/Dashboard/DashboardStats';
 import RecentCalls from '../components/Dashboard/RecentCalls';
 import DialerPanel from '../components/Dialer/DialerPanel';
 import ClockInOutButton from '../components/Agents/ClockInOutButton';
+import FollowUpCalendar from '../components/Dashboard/FollowUpCalendar';
 
 export default function MyDashboardPage() {
   const { agent } = useAuth();
@@ -31,6 +32,8 @@ export default function MyDashboardPage() {
         <DialerPanel />
         <RecentCalls onCall={makeCall} agentId={agent?.id} />
       </div>
+
+      <FollowUpCalendar compact />
     </div>
   );
 }
