@@ -4,6 +4,7 @@ import StatusSelector from '../components/Agents/StatusSelector';
 import DashboardStats from '../components/Dashboard/DashboardStats';
 import RecentCalls from '../components/Dashboard/RecentCalls';
 import DialerPanel from '../components/Dialer/DialerPanel';
+import ClockInOutButton from '../components/Agents/ClockInOutButton';
 
 export default function MyDashboardPage() {
   const { agent } = useAuth();
@@ -18,7 +19,10 @@ export default function MyDashboardPage() {
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Here's your personal overview</p>
         </div>
-        <StatusSelector />
+        <div className="flex items-center gap-3">
+          <ClockInOutButton />
+          <StatusSelector />
+        </div>
       </div>
 
       <DashboardStats agentId={agent?.id} />

@@ -16,6 +16,7 @@ const callRoutes = require('./routes/calls');
 const contactRoutes = require('./routes/contacts');
 const phoneListRoutes = require('./routes/phoneLists');
 const twilioRoutes = require('./routes/twilio');
+const attendanceRoutes = require('./routes/attendance');
 
 const app = express();
 const server = http.createServer(app);
@@ -48,6 +49,7 @@ app.use('/api/calls', callRoutes);
 app.use('/api/contacts', authMiddleware, contactRoutes);
 app.use('/api/phone-lists', authMiddleware, phoneListRoutes);
 app.use('/api/twilio', twilioRoutes);
+app.use('/api/attendance', attendanceRoutes);
 
 // Serve React frontend in production
 const clientDist = path.join(__dirname, '../../client/dist');
