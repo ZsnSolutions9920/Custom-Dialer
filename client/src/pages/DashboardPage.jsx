@@ -1,6 +1,6 @@
 import DialerPanel from '../components/Dialer/DialerPanel';
+import AgentPresenceList from '../components/Agents/AgentPresenceList';
 import DashboardStats from '../components/Dashboard/DashboardStats';
-import AgentLeaderboard from '../components/Dashboard/AgentLeaderboard';
 import RecentCalls from '../components/Dashboard/RecentCalls';
 import LiveCallMonitor from '../components/Dashboard/LiveCallMonitor';
 import { useCall } from '../context/CallContext';
@@ -20,7 +20,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <DialerPanel />
-        <AgentLeaderboard />
+        <AgentPresenceList />
         <RecentCalls onCall={makeCall} />
       </div>
 
