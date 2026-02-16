@@ -31,6 +31,16 @@ async function getActiveCallByConference(conferenceName) {
   return rows[0] || null;
 }
 
+async function getAllActiveCalls() {
+  const { rows } = await pool.query(
+    `SELECT ac.*, a.display_name as agent_name
+     FROM active_calls ac
+     JOIN agents a ON ac.agent_id = a.id
+     WHERE ac.status = 'in-progress'`
+  );
+  return rows;
+}
+
 async function removeActiveCall(callSid) {
   await pool.query('DELETE FROM active_calls WHERE call_sid = $1', [callSid]);
 }
@@ -234,6 +244,7 @@ module.exports = {
   getActiveCallByAgent,
   getActiveCallBySid,
   getActiveCallByConference,
+  getAllActiveCalls,
   removeActiveCall,
   removeActiveCallsByConference,
   createCallLog,

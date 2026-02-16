@@ -2,6 +2,7 @@ import DialerPanel from '../components/Dialer/DialerPanel';
 import AgentPresenceList from '../components/Agents/AgentPresenceList';
 import DashboardStats from '../components/Dashboard/DashboardStats';
 import RecentCalls from '../components/Dashboard/RecentCalls';
+import LiveCallMonitor from '../components/Dashboard/LiveCallMonitor';
 import { useCall } from '../context/CallContext';
 import AdminGate from '../components/Auth/AdminGate';
 
@@ -22,6 +23,8 @@ export default function DashboardPage() {
         <AgentPresenceList />
         <RecentCalls onCall={makeCall} />
       </div>
+
+      <LiveCallMonitor />
     </div>
     </AdminGate>
   );

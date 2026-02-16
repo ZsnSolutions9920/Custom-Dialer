@@ -49,3 +49,18 @@ export const getTwilioToken = () =>
   api.get('/token').then((r) => r.data);
 
 export const getRecordingUrl = (callId) => `/api/calls/${callId}/recording`;
+
+export const getActiveCalls = () =>
+  api.get('/calls/active').then((r) => r.data);
+
+export const getMonitorToken = () =>
+  api.get('/token/monitor').then((r) => r.data);
+
+export const startMonitor = (conferenceName) =>
+  api.post('/calls/monitor', { conferenceName }).then((r) => r.data);
+
+export const setMonitorMode = (conferenceSid, participantCallSid, muted) =>
+  api.post('/calls/monitor/mode', { conferenceSid, participantCallSid, muted }).then((r) => r.data);
+
+export const stopMonitor = (conferenceSid, participantCallSid) =>
+  api.post('/calls/monitor/stop', { conferenceSid, participantCallSid }).then((r) => r.data);

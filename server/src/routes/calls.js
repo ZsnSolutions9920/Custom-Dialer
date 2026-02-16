@@ -9,6 +9,101 @@ const logger = require('../utils/logger');
 
 const router = express.Router();
 
+// Active calls list for monitoring
+router.get('/active', authMiddleware, async (req, res) => {
+  try {
+    const activeCalls = await callService.getAllActiveCalls();
+    res.json(activeCalls);
+  } catch (err) {
+    logger.error(err, 'Error fetching active calls');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Join conference as coach (listen/whisper)
+router.post('/monitor', authMiddleware, async (req, res) => {
+  try {
+    const { conferenceName } = req.body;
+    if (!conferenceName) {
+      return res.status(400).json({ error: 'conferenceName is required' });
+    }
+
+    // Look up the active call to get the agent's call_sid for coaching
+    const activeCall = await callService.getActiveCallByConference(conferenceName);
+    if (!activeCall) {
+      return res.status(404).json({ error: 'Active call not found for this conference' });
+    }
+
+    // Find the live conference SID
+    const conferences = await twilioClient.conferences.list({
+      friendlyName: conferenceName,
+      status: 'in-progress',
+    });
+    if (conferences.length === 0) {
+      return res.status(404).json({ error: 'No in-progress conference found' });
+    }
+    const conferenceSid = conferences[0].sid;
+
+    // Add admin as coach participant (muted = listen-only)
+    const monitorIdentity = `monitor_${req.agent.id}`;
+    const participant = await twilioClient.conferences(conferenceSid)
+      .participants
+      .create({
+        to: `client:${monitorIdentity}`,
+        from: config.twilio.phoneNumber,
+        coach: activeCall.call_sid,
+        muted: true,
+        endConferenceOnExit: false,
+      });
+
+    logger.info({ conferenceName, conferenceSid, monitorIdentity }, 'Monitor joined conference');
+    res.json({ ok: true, participantCallSid: participant.callSid, conferenceSid });
+  } catch (err) {
+    logger.error(err, 'Error starting monitor');
+    res.status(500).json({ error: 'Failed to start monitoring' });
+  }
+});
+
+// Toggle monitor mode (muted=true → listen, muted=false → whisper)
+router.post('/monitor/mode', authMiddleware, async (req, res) => {
+  try {
+    const { conferenceSid, participantCallSid, muted } = req.body;
+    if (!conferenceSid || !participantCallSid || typeof muted !== 'boolean') {
+      return res.status(400).json({ error: 'conferenceSid, participantCallSid, and muted (boolean) are required' });
+    }
+
+    await twilioClient.conferences(conferenceSid)
+      .participants(participantCallSid)
+      .update({ muted });
+
+    logger.info({ conferenceSid, participantCallSid, muted }, 'Monitor mode updated');
+    res.json({ ok: true, muted });
+  } catch (err) {
+    logger.error(err, 'Error updating monitor mode');
+    res.status(500).json({ error: 'Failed to update monitor mode' });
+  }
+});
+
+// Remove admin from conference (stop monitoring)
+router.post('/monitor/stop', authMiddleware, async (req, res) => {
+  try {
+    const { conferenceSid, participantCallSid } = req.body;
+    if (!conferenceSid || !participantCallSid) {
+      return res.status(400).json({ error: 'conferenceSid and participantCallSid are required' });
+    }
+
+    await twilioClient.conferences(conferenceSid)
+      .participants(participantCallSid)
+      .remove();
+
+    logger.info({ conferenceSid, participantCallSid }, 'Monitor removed from conference');
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error(err, 'Error stopping monitor');
+    res.status(500).json({ error: 'Failed to stop monitoring' });
+  }
+});
+
 // Dashboard stats
 router.get('/stats', authMiddleware, async (req, res) => {
   try {

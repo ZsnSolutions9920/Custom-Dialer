@@ -13,4 +13,14 @@ router.get('/', authMiddleware, (req, res) => {
   }
 });
 
+router.get('/monitor', authMiddleware, (req, res) => {
+  try {
+    const identity = `monitor_${req.agent.id}`;
+    const token = generateAccessToken(identity);
+    res.json({ token, identity });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to generate monitor token' });
+  }
+});
+
 module.exports = router;
