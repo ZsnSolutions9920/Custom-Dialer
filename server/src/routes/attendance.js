@@ -1,6 +1,7 @@
 const express = require('express');
 const attendanceService = require('../services/attendanceService');
 const authMiddleware = require('../middleware/auth');
+const { sendAttendanceNotification } = require('../services/discordService');
 
 const router = express.Router();
 
@@ -20,6 +21,12 @@ router.post('/clock-in', authMiddleware, async (req, res) => {
   try {
     const session = await attendanceService.clockIn(req.agent.id);
     res.json(session);
+
+    sendAttendanceNotification({
+      agentName: req.agent.displayName || req.agent.username,
+      type: 'clock_in',
+      timestamp: session.clock_in,
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -29,6 +36,13 @@ router.post('/clock-out', authMiddleware, async (req, res) => {
   try {
     const session = await attendanceService.clockOut(req.agent.id);
     res.json(session);
+
+    sendAttendanceNotification({
+      agentName: req.agent.displayName || req.agent.username,
+      type: 'clock_out',
+      timestamp: session.clock_out,
+      durationSeconds: session.duration_seconds,
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
