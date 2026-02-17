@@ -9,20 +9,11 @@ async function sendAttendanceNotification({ agentName, type, timestamp, duration
   }
 
   const isClockIn = type === 'clock_in';
-  const time = new Date(timestamp).toLocaleString('en-US', {
-    timeZone: 'America/Chicago',
-    weekday: 'short',
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
+  const unix = Math.floor(new Date(timestamp).getTime() / 1000);
 
   const fields = [
     { name: 'Agent', value: agentName, inline: true },
-    { name: 'Time', value: time, inline: true },
+    { name: 'Time', value: `<t:${unix}:F>`, inline: true },
   ];
 
   if (!isClockIn && durationSeconds != null) {
