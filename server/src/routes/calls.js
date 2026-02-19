@@ -34,19 +34,11 @@ router.post('/monitor', authMiddleware, async (req, res) => {
       return res.status(404).json({ error: 'Active call not found for this conference' });
     }
 
-    // Find the live conference SID
-    const conferences = await twilioClient.conferences.list({
-      friendlyName: conferenceName,
-      status: 'in-progress',
-    });
-    if (conferences.length === 0) {
-      return res.status(404).json({ error: 'No in-progress conference found' });
-    }
-    const conferenceSid = conferences[0].sid;
-
     // Add admin as coach participant (muted = listen-only)
+    // Use conference_sid if available, otherwise use friendly name directly (same as transfer)
+    const conferenceId = activeCall.conference_sid || conferenceName;
     const monitorIdentity = `monitor_${req.agent.id}`;
-    const participant = await twilioClient.conferences(conferenceSid)
+    const participant = await twilioClient.conferences(conferenceId)
       .participants
       .create({
         to: `client:${monitorIdentity}`,
@@ -56,6 +48,7 @@ router.post('/monitor', authMiddleware, async (req, res) => {
         endConferenceOnExit: false,
       });
 
+    const conferenceSid = participant.conferenceSid || activeCall.conference_sid;
     logger.info({ conferenceName, conferenceSid, monitorIdentity }, 'Monitor joined conference');
     res.json({ ok: true, participantCallSid: participant.callSid, conferenceSid });
   } catch (err) {
