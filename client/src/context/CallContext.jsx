@@ -28,6 +28,7 @@ export function CallProvider({ children }) {
   const timerRef = useRef(null);
   const [transferInProgress, setTransferInProgress] = useState(null);
   const initPendingRef = useRef(false);
+  const notificationRef = useRef(null);
 
   // Initialize Twilio Device — must be called during a user gesture (click)
   // so the browser allows AudioContext to start
@@ -49,6 +50,9 @@ export function CallProvider({ children }) {
 
       device.on('registered', () => {
         setDeviceReady(true);
+        if ('Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission();
+        }
       });
 
       device.on('error', (err) => {
@@ -60,7 +64,25 @@ export function CallProvider({ children }) {
         setCallDirection('inbound');
         setRemoteNumber(call.parameters.From || 'Unknown');
 
+        if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+          const caller = call.parameters.From || 'Unknown';
+          const n = new Notification('Incoming Call', {
+            body: `Call from ${caller}`,
+            tag: 'incoming-call',
+            requireInteraction: true,
+          });
+          n.onclick = () => {
+            window.focus();
+            n.close();
+          };
+          notificationRef.current = n;
+        }
+
         call.on('cancel', () => {
+          if (notificationRef.current) {
+            notificationRef.current.close();
+            notificationRef.current = null;
+          }
           setIncomingCall(null);
           resetCallState();
         });
@@ -175,6 +197,10 @@ export function CallProvider({ children }) {
   }, [socket]);
 
   const resetCallState = useCallback(() => {
+    if (notificationRef.current) {
+      notificationRef.current.close();
+      notificationRef.current = null;
+    }
     setActiveCall(null);
     setIncomingCall(null);
     setCallState('idle');
@@ -235,6 +261,11 @@ export function CallProvider({ children }) {
   const acceptCall = useCallback(() => {
     if (!incomingCall) return;
 
+    if (notificationRef.current) {
+      notificationRef.current.close();
+      notificationRef.current = null;
+    }
+
     incomingCall.accept();
     setActiveCall(incomingCall);
     setIncomingCall(null);
@@ -248,6 +279,12 @@ export function CallProvider({ children }) {
   // Reject incoming call
   const rejectCall = useCallback(() => {
     if (!incomingCall) return;
+
+    if (notificationRef.current) {
+      notificationRef.current.close();
+      notificationRef.current = null;
+    }
+
     incomingCall.reject();
     setIncomingCall(null);
     resetCallState();
