@@ -239,6 +239,14 @@ async function addParticipantToConference(conferenceName, to, from) {
   return participant;
 }
 
+async function deleteCallLog(callId) {
+  const { rows } = await pool.query(
+    'DELETE FROM call_logs WHERE id = $1 RETURNING id',
+    [callId]
+  );
+  return rows[0] || null;
+}
+
 module.exports = {
   createActiveCall,
   getActiveCallByAgent,
@@ -252,6 +260,7 @@ module.exports = {
   getCallLogs,
   updateCallNotes,
   getCallLogsForExport,
+  deleteCallLog,
   toggleHold,
   holdParticipant,
   hangupConference,

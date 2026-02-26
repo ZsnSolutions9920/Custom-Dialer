@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getRecordingUrl } from '../../api/calls';
+import { getRecordingUrl, deleteCallLog } from '../../api/calls';
 import CallNotesModal from './CallNotesModal';
 
 const DISPOSITION_COLORS = {
@@ -11,7 +11,7 @@ const DISPOSITION_COLORS = {
   'callback-requested': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
 };
 
-export default function CallLogRow({ call, onCallUpdated }) {
+export default function CallLogRow({ call, onCallUpdated, onCallDeleted }) {
   const [showNotes, setShowNotes] = useState(false);
 
   const duration = call.duration_seconds
@@ -32,6 +32,12 @@ export default function CallLogRow({ call, onCallUpdated }) {
                 ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
                 : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
             }`}
+            onDoubleClick={call.direction === 'outbound' ? async () => {
+              try {
+                await deleteCallLog(call.id);
+                if (onCallDeleted) onCallDeleted(call.id);
+              } catch (e) { /* silent */ }
+            } : undefined}
           >
             {call.direction}
           </span>

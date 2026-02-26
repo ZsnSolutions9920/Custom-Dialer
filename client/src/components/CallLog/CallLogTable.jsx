@@ -31,6 +31,14 @@ export default function CallLogTable({ filters = {} }) {
     }));
   };
 
+  const handleCallDeleted = (callId) => {
+    setData((prev) => ({
+      ...prev,
+      calls: prev.calls.filter((c) => c.id !== callId),
+      total: prev.total - 1,
+    }));
+  };
+
   const totalPages = Math.ceil(data.total / data.limit);
 
   return (
@@ -65,7 +73,7 @@ export default function CallLogTable({ filters = {} }) {
               </tr>
             ) : (
               data.calls.map((call) => (
-                <CallLogRow key={call.id} call={call} onCallUpdated={handleCallUpdated} />
+                <CallLogRow key={call.id} call={call} onCallUpdated={handleCallUpdated} onCallDeleted={handleCallDeleted} />
               ))
             )}
           </tbody>

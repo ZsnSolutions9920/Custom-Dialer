@@ -21,6 +21,9 @@ export const getTodayCallCount = () =>
 export const updateCallNotes = (callId, data) =>
   api.patch(`/calls/${callId}/notes`, data).then((r) => r.data);
 
+export const deleteCallLog = (callId) =>
+  api.delete(`/calls/${callId}`).then((r) => r.data);
+
 export const exportCallsCsv = async (filters = {}) => {
   const response = await api.get('/calls/export', { params: filters, responseType: 'blob' });
   const url = window.URL.createObjectURL(new Blob([response.data]));

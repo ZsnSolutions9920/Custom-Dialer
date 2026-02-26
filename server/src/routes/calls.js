@@ -190,6 +190,18 @@ router.get('/export', authMiddleware, async (req, res) => {
   }
 });
 
+// Delete a call log entry
+router.delete('/:id', authMiddleware, async (req, res) => {
+  try {
+    const deleted = await callService.deleteCallLog(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Call not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error(err, 'Error deleting call log');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Update call notes and disposition
 router.patch('/:id/notes', authMiddleware, async (req, res) => {
   try {
