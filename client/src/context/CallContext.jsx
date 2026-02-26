@@ -234,6 +234,25 @@ export function CallProvider({ children }) {
     };
   }, [callState]);
 
+  const resetCallState = useCallback(() => {
+    if (notificationRef.current) {
+      notificationRef.current.close();
+      notificationRef.current = null;
+    }
+    setActiveCall(null);
+    setIncomingCall(null);
+    setCallState('idle');
+    setIsMuted(false);
+    setIsHeld(false);
+    setConferenceName(null);
+    setConferenceSid(null);
+    setParticipantCallSid(null);
+    setCallDirection(null);
+    setRemoteNumber(null);
+    setCallTimer(0);
+    setTransferInProgress(null);
+  }, []);
+
   // Listen for Socket.IO call events
   useEffect(() => {
     if (!socket) return;
@@ -286,25 +305,6 @@ export function CallProvider({ children }) {
       socket.off('call:error', onCallError);
     };
   }, [socket, callState, showCallError, resetCallState]);
-
-  const resetCallState = useCallback(() => {
-    if (notificationRef.current) {
-      notificationRef.current.close();
-      notificationRef.current = null;
-    }
-    setActiveCall(null);
-    setIncomingCall(null);
-    setCallState('idle');
-    setIsMuted(false);
-    setIsHeld(false);
-    setConferenceName(null);
-    setConferenceSid(null);
-    setParticipantCallSid(null);
-    setCallDirection(null);
-    setRemoteNumber(null);
-    setCallTimer(0);
-    setTransferInProgress(null);
-  }, []);
 
   // Make outbound call
   const makeCall = useCallback(async (number) => {
