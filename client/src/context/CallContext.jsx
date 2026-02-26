@@ -7,6 +7,27 @@ import * as callsApi from '../api/calls';
 
 const CallContext = createContext(null);
 
+// Map Twilio error codes to user-friendly messages
+function getTwilioErrorMessage(err) {
+  const code = err?.code || err?.twilioError?.code;
+  const messages = {
+    20101: 'Invalid access token. Reconnecting...',
+    20104: 'Access token expired. Reconnecting...',
+    31003: 'Connection lost. Reconnecting...',
+    31005: 'Connection error. Please check your internet.',
+    31009: 'Transport error. Reconnecting...',
+    31201: 'Authorization failed. Please refresh the page.',
+    31204: 'Voice service unavailable. Retrying...',
+    31205: 'JWT token expired. Reconnecting...',
+    31400: 'Call failed. Please try again.',
+    31480: 'Temporarily unavailable. Please try again in a moment.',
+    31486: 'Line is busy. Please try again later.',
+    31487: 'Request timed out. Please try again.',
+    31603: 'Call failed — service unavailable. Retrying...',
+  };
+  return messages[code] || err?.message || 'An unexpected error occurred';
+}
+
 export function CallProvider({ children }) {
   const { agent, isAuthenticated } = useAuth();
   const { socket } = useSocket();
@@ -16,7 +37,7 @@ export function CallProvider({ children }) {
   const [deviceReady, setDeviceReady] = useState(false);
   const [activeCall, setActiveCall] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
-  const [callState, setCallState] = useState('idle'); // idle, connecting, ringing, in-progress, on-hold
+  const [callState, setCallState] = useState('idle'); // idle, connecting, ringing, in-progress, on-hold, error
   const [isMuted, setIsMuted] = useState(false);
   const [isHeld, setIsHeld] = useState(false);
   const [conferenceName, setConferenceName] = useState(null);
@@ -29,6 +50,48 @@ export function CallProvider({ children }) {
   const [transferInProgress, setTransferInProgress] = useState(null);
   const initPendingRef = useRef(false);
   const notificationRef = useRef(null);
+  const [callError, setCallError] = useState(null); // { message, timestamp, recoverable }
+  const errorClearTimerRef = useRef(null);
+  const deviceRecoveryRef = useRef(false);
+
+  // Show a call error to the user — auto-clears after a timeout
+  const showCallError = useCallback((message, recoverable = true) => {
+    setCallError({ message, timestamp: Date.now(), recoverable });
+    toast.error(message);
+    if (errorClearTimerRef.current) clearTimeout(errorClearTimerRef.current);
+    errorClearTimerRef.current = setTimeout(() => setCallError(null), recoverable ? 90000 : 30000);
+  }, [toast]);
+
+  const clearCallError = useCallback(() => {
+    setCallError(null);
+    if (errorClearTimerRef.current) {
+      clearTimeout(errorClearTimerRef.current);
+      errorClearTimerRef.current = null;
+    }
+  }, []);
+
+  // Try to re-register the Twilio Device after an error
+  const recoverDevice = useCallback(async () => {
+    if (deviceRecoveryRef.current) return; // already recovering
+    deviceRecoveryRef.current = true;
+    try {
+      // Wait a bit before retrying to avoid hammering the service
+      await new Promise((r) => setTimeout(r, 3000));
+      if (deviceRef.current) {
+        const { token } = await callsApi.getTwilioToken();
+        deviceRef.current.updateToken(token);
+        await deviceRef.current.register();
+        setDeviceReady(true);
+        clearCallError();
+        toast.success('Connection restored');
+      }
+    } catch (err) {
+      console.error('Device recovery failed:', err);
+      showCallError('Unable to reconnect. Please refresh the page.', false);
+    } finally {
+      deviceRecoveryRef.current = false;
+    }
+  }, [clearCallError, showCallError, toast]);
 
   // Initialize Twilio Device — must be called during a user gesture (click)
   // so the browser allows AudioContext to start
@@ -50,13 +113,28 @@ export function CallProvider({ children }) {
 
       device.on('registered', () => {
         setDeviceReady(true);
+        clearCallError();
         if ('Notification' in window && Notification.permission === 'default') {
           Notification.requestPermission();
         }
       });
 
+      device.on('unregistered', () => {
+        setDeviceReady(false);
+      });
+
       device.on('error', (err) => {
         console.error('Twilio Device error:', err);
+        const message = getTwilioErrorMessage(err);
+        showCallError(message, true);
+        setDeviceReady(false);
+
+        // Auto-recover for transient errors
+        const code = err?.code || err?.twilioError?.code;
+        const recoverableCodes = [20101, 20104, 31003, 31005, 31009, 31204, 31205, 31603];
+        if (recoverableCodes.includes(code)) {
+          recoverDevice();
+        }
       });
 
       device.on('incoming', (call) => {
@@ -98,6 +176,7 @@ export function CallProvider({ children }) {
           device.updateToken(newToken);
         } catch (err) {
           console.error('Failed to refresh Twilio token:', err);
+          showCallError('Session expiring — failed to refresh. Please refresh the page.', false);
         }
       });
 
@@ -105,8 +184,9 @@ export function CallProvider({ children }) {
       deviceRef.current = device;
     } catch (err) {
       console.error('Failed to init Twilio Device:', err);
+      showCallError('Failed to initialize phone. Please refresh and try again.', false);
     }
-  }, []);
+  }, [clearCallError, showCallError, recoverDevice]);
 
   // Wait for a user gesture (click) before initializing the Device.
   // Browsers block AudioContext creation unless it happens during a user interaction.
@@ -127,6 +207,7 @@ export function CallProvider({ children }) {
     return () => {
       initPendingRef.current = false;
       document.removeEventListener('click', handleClick);
+      if (errorClearTimerRef.current) clearTimeout(errorClearTimerRef.current);
       if (deviceRef.current) {
         deviceRef.current.destroy();
         deviceRef.current = null;
@@ -181,11 +262,20 @@ export function CallProvider({ children }) {
       setCallState(data.hold ? 'on-hold' : 'in-progress');
     };
 
+    const onCallError = (data) => {
+      showCallError(data.message || 'A call error occurred on the server', true);
+      // If the error happened during connecting/ringing, reset the call
+      if (['connecting', 'ringing'].includes(callState)) {
+        resetCallState();
+      }
+    };
+
     socket.on('call:outbound', onOutbound);
     socket.on('call:conference-started', onConfStarted);
     socket.on('call:participant-joined', onParticipantJoined);
     socket.on('call:ended', onCallEnded);
     socket.on('call:hold', onHold);
+    socket.on('call:error', onCallError);
 
     return () => {
       socket.off('call:outbound', onOutbound);
@@ -193,8 +283,9 @@ export function CallProvider({ children }) {
       socket.off('call:participant-joined', onParticipantJoined);
       socket.off('call:ended', onCallEnded);
       socket.off('call:hold', onHold);
+      socket.off('call:error', onCallError);
     };
-  }, [socket]);
+  }, [socket, callState, showCallError, resetCallState]);
 
   const resetCallState = useCallback(() => {
     if (notificationRef.current) {
@@ -217,9 +308,16 @@ export function CallProvider({ children }) {
 
   // Make outbound call
   const makeCall = useCallback(async (number) => {
-    if (!deviceRef.current || !deviceReady) return;
+    if (!deviceRef.current || !deviceReady) {
+      if (!deviceRef.current) {
+        showCallError('Phone not initialized. Please refresh the page.', false);
+      } else {
+        showCallError('Phone is reconnecting. Please wait a moment and try again.', true);
+      }
+      return;
+    }
 
-    const confName = `conf_outbound_${Date.now()}`;
+    clearCallError();
     setCallDirection('outbound');
     setRemoteNumber(number);
     setCallState('connecting');
@@ -233,6 +331,7 @@ export function CallProvider({ children }) {
 
       call.on('accept', () => {
         setCallState('in-progress');
+        clearCallError();
       });
 
       call.on('ringing', () => {
@@ -249,13 +348,17 @@ export function CallProvider({ children }) {
 
       call.on('error', (err) => {
         console.error('Call error:', err);
+        const message = getTwilioErrorMessage(err);
+        showCallError(message, true);
         resetCallState();
       });
     } catch (err) {
       console.error('Failed to connect call:', err);
+      const message = err.response?.data?.error || getTwilioErrorMessage(err);
+      showCallError(`Call failed: ${message}`, true);
       resetCallState();
     }
-  }, [deviceReady, resetCallState]);
+  }, [deviceReady, resetCallState, showCallError, clearCallError]);
 
   // Accept incoming call
   const acceptCall = useCallback(() => {
@@ -381,6 +484,7 @@ export function CallProvider({ children }) {
         remoteNumber,
         callTimer,
         transferInProgress,
+        callError,
         makeCall,
         acceptCall,
         rejectCall,
@@ -390,6 +494,7 @@ export function CallProvider({ children }) {
         transfer,
         completeTransfer,
         sendDTMF,
+        clearCallError,
       }}
     >
       {children}

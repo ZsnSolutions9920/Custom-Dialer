@@ -109,6 +109,19 @@ router.post('/voice', validateTwilio, async (req, res) => {
         })
         .catch((err) => {
           logger.error({ err, to: To, from: agentPhone, conferenceName, agentId: agent?.id }, 'Failed to add external participant');
+
+          // Notify the agent about the failure via Socket.IO
+          if (agent) {
+            const io2 = req.app.get('io');
+            if (io2) {
+              const errMessage = err.message || 'Failed to connect the call';
+              io2.to(`agent:${agent.id}`).emit('call:error', {
+                conferenceName,
+                message: `Call to ${To} failed: ${errMessage}`,
+                code: err.code || err.status,
+              });
+            }
+          }
         });
 
       res.type('text/xml');
