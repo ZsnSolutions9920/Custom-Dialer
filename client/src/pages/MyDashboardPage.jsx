@@ -19,6 +19,11 @@ export default function MyDashboardPage() {
             Welcome back, {agent?.displayName}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Here's your personal overview</p>
+          {agent?.twilioPhoneNumber && (
+            <p className="text-sm font-medium text-blue-600 dark:text-blue-400 mt-1">
+              Your number: {agent.twilioPhoneNumber}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           <ClockInOutButton />
