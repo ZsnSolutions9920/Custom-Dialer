@@ -235,10 +235,29 @@ router.post('/voice-action', validateTwilio, async (req, res) => {
       twiml.say('We are sorry, no agents are available right now. Please try again later.');
       twiml.hangup();
 
-      await callService.updateCallLog(CallSid, {
+      const missedLog = await callService.updateCallLog(CallSid, {
         status: 'no-answer',
         endedAt: new Date(),
       });
+
+      // Notify agent(s) about the missed inbound call
+      if (missedLog) {
+        const io = req.app.get('io');
+        if (io) {
+          if (missedLog.agent_id) {
+            io.to(`agent:${missedLog.agent_id}`).emit('call:missed', {
+              callSid: CallSid,
+              from: missedLog.from_number,
+            });
+          } else {
+            // Shared number - notify all agents
+            io.emit('call:missed', {
+              callSid: CallSid,
+              from: missedLog.from_number,
+            });
+          }
+        }
+      }
     }
   } catch (err) {
     logger.error(err, 'Error in voice-action');

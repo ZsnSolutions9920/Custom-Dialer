@@ -92,6 +92,11 @@ export default function InboundCallsPage() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
 
+  // Clear missed-call alert when agent visits this page
+  useEffect(() => {
+    localStorage.removeItem('missedInboundAlert');
+  }, []);
+
   const fetchCalls = async (page = 1) => {
     setLoading(true);
     try {
