@@ -106,6 +106,7 @@ export default function PowerDialerOverlay() {
     stopSession,
     submitStatus,
     skipEntry,
+    recallEntry,
     pauseSession,
     resumeSession,
     pauseTimer,
@@ -280,6 +281,12 @@ export default function PowerDialerOverlay() {
                 </button>
               ))}
             </div>
+            <button
+              onClick={recallEntry}
+              className="w-full mt-2 text-xs font-medium text-white px-2 py-1.5 rounded-lg transition-colors bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-600"
+            >
+              Recall
+            </button>
           </div>
         )}
 

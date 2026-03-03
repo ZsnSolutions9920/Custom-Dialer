@@ -334,13 +334,13 @@ function getMetaField(metadata, keys) {
 
 /* ── LeadsList ── */
 
-function LeadsList({ listId, onBack, onViewProfile, toast }) {
+function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
   const [data, setData] = useState({ entries: [], total: 0, page: 1, limit: 50 });
   const [loading, setLoading] = useState(true);
   const [followUpTarget, setFollowUpTarget] = useState(null);
   const [search, setSearch] = useState('');
   const { makeCall } = useCall();
-  const { statusUpdateCount } = usePowerDialer();
+  const { statusUpdateCount, startSessionFromEntry, isActive: powerDialActive } = usePowerDialer();
   const searchTimerRef = useRef(null);
 
   const fetchEntries = async (page = 1, query = search) => {
@@ -518,12 +518,24 @@ function LeadsList({ listId, onBack, onViewProfile, toast }) {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => handleCall(entry)}
-                          className="px-3 py-1.5 bg-brand-600 text-white text-xs font-medium rounded-lg hover:bg-brand-700 transition-colors"
-                        >
-                          Call
-                        </button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => handleCall(entry)}
+                            className="px-3 py-1.5 bg-brand-600 text-white text-xs font-medium rounded-lg hover:bg-brand-700 transition-colors"
+                          >
+                            Call
+                          </button>
+                          <button
+                            onClick={() => startSessionFromEntry(listId, listName, entry.id)}
+                            disabled={powerDialActive}
+                            className="px-2 py-1.5 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Power Dial from here"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -779,9 +791,10 @@ export default function PhoneListsPage() {
   const [loading, setLoading] = useState(true);
   const [showUpload, setShowUpload] = useState(false);
   const [selectedListId, setSelectedListId] = useState(null);
+  const [selectedListName, setSelectedListName] = useState('');
   const [selectedEntryId, setSelectedEntryId] = useState(null);
   const toast = useToast();
-  const { startSession, isActive: powerDialActive } = usePowerDialer();
+  const { startSession, startSessionFromEntry, isActive: powerDialActive } = usePowerDialer();
 
   const fetchLists = async () => {
     setLoading(true);
@@ -806,6 +819,7 @@ export default function PhoneListsPage() {
       await deletePhoneList(id);
       if (selectedListId === id) {
         setSelectedListId(null);
+        setSelectedListName('');
         setSelectedEntryId(null);
       }
       fetchLists();
@@ -841,7 +855,8 @@ export default function PhoneListsPage() {
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Leads</h1>
         <LeadsList
           listId={selectedListId}
-          onBack={() => setSelectedListId(null)}
+          listName={selectedListName}
+          onBack={() => { setSelectedListId(null); setSelectedListName(''); }}
           onViewProfile={(entryId) => setSelectedEntryId(entryId)}
           toast={toast}
         />
@@ -877,7 +892,7 @@ export default function PhoneListsPage() {
             >
               <div className="flex items-start justify-between mb-3">
                 <button
-                  onClick={() => setSelectedListId(list.id)}
+                  onClick={() => { setSelectedListId(list.id); setSelectedListName(list.name); }}
                   className="text-left font-semibold text-gray-800 dark:text-white hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
                 >
                   {list.name}
@@ -915,7 +930,7 @@ export default function PhoneListsPage() {
                   disabled={powerDialActive}
                   className="w-full mt-2 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors bg-orange-500 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {powerDialActive ? 'Dialing...' : 'Power Dial'}
+                  {powerDialActive ? 'Dialing...' : (list.called_count > 0 && list.called_count < list.total_count) ? 'Resume Power Dial' : 'Power Dial'}
                 </button>
                 <p className="text-xs text-gray-400 dark:text-gray-500 pt-1">
                   {new Date(list.created_at).toLocaleDateString()}
