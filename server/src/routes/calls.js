@@ -190,6 +190,26 @@ router.get('/export', authMiddleware, async (req, res) => {
   }
 });
 
+// Purge old call history (keep most recent 10%)
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'admin123';
+
+router.delete('/purge-old', authMiddleware, async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ error: 'Invalid admin credentials' });
+    }
+
+    const result = await callService.purgeOldCallLogs();
+    logger.info(result, 'Purged old call logs');
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    logger.error(err, 'Error purging old call logs');
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Delete a call log entry
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {

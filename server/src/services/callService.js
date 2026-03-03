@@ -239,6 +239,27 @@ async function addParticipantToConference(conferenceName, to, from) {
   return participant;
 }
 
+async function purgeOldCallLogs() {
+  const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM call_logs');
+  const totalCount = parseInt(countRows[0].count, 10);
+
+  if (totalCount === 0) {
+    return { deletedCount: 0, remainingCount: 0 };
+  }
+
+  const keepCount = Math.ceil(totalCount * 0.10);
+
+  const { rowCount } = await pool.query(
+    `DELETE FROM call_logs
+     WHERE id NOT IN (
+       SELECT id FROM call_logs ORDER BY started_at DESC LIMIT $1
+     )`,
+    [keepCount]
+  );
+
+  return { deletedCount: rowCount, remainingCount: totalCount - rowCount };
+}
+
 async function deleteCallLog(callId) {
   const { rows } = await pool.query(
     'DELETE FROM call_logs WHERE id = $1 RETURNING id',
@@ -261,6 +282,7 @@ module.exports = {
   updateCallNotes,
   getCallLogsForExport,
   deleteCallLog,
+  purgeOldCallLogs,
   toggleHold,
   holdParticipant,
   hangupConference,
