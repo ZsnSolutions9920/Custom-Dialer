@@ -7,6 +7,7 @@ const PowerDialerContext = createContext(null);
 
 const WRAP_UP_SECONDS = 15;
 const SKIPPED_KEY = (lid) => `power_dialer_skipped_${lid}`;
+const MIN_ID_KEY = (lid) => `power_dialer_minId_${lid}`;
 
 export function PowerDialerProvider({ children }) {
   const { callState, makeCall, hangup, deviceReady } = useCall();
@@ -21,6 +22,8 @@ export function PowerDialerProvider({ children }) {
   const [wrapUpTimer, setWrapUpTimer] = useState(WRAP_UP_SECONDS);
   const [timerPaused, setTimerPaused] = useState(false);
   const [statusUpdateCount, setStatusUpdateCount] = useState(0);
+  const [dialingNext, setDialingNext] = useState(false);
+  const [startFromId, setStartFromId] = useState(null);
 
   const prevCallStateRef = useRef(callState);
   const sessionActiveRef = useRef(false);
@@ -52,13 +55,16 @@ export function PowerDialerProvider({ children }) {
   }, []);
 
   // Dial the next entry
-  const dialNext = useCallback(async (lid, skip) => {
+  const dialNext = useCallback(async (lid, skip, minId = null) => {
     dialingNextRef.current = true;
+    setDialingNext(true);
     try {
-      const entry = await getNextDialableEntry(lid, skip);
+      const entry = await getNextDialableEntry(lid, skip, minId);
       if (!entry) {
-        // List exhausted — clean up persisted skips
+        // List exhausted — clean up persisted skips and minId
         localStorage.removeItem(SKIPPED_KEY(lid));
+        localStorage.removeItem(MIN_ID_KEY(lid));
+        setStartFromId(null);
         setPhase('idle');
         setListId(null);
         setListName('');
@@ -73,8 +79,14 @@ export function PowerDialerProvider({ children }) {
       // Disconnect previous call before dialing next
       await hangup();
       await new Promise((r) => setTimeout(r, 500));
+      // Release the transition guard before dialing so that
+      // call-end detection works immediately if the call fails
+      dialingNextRef.current = false;
+      setDialingNext(false);
       makeCall(entry.phone_number);
-      await markEntryCalled(entry.id);
+      markEntryCalled(entry.id).catch((err) =>
+        console.error('Failed to mark entry as called:', err)
+      );
     } catch (err) {
       console.error('Power dialer: failed to dial next:', err);
       toast.error('Failed to dial next lead');
@@ -85,11 +97,12 @@ export function PowerDialerProvider({ children }) {
       setSkippedIds([]);
     } finally {
       dialingNextRef.current = false;
+      setDialingNext(false);
     }
   }, [makeCall, hangup, refreshProgress, toast]);
 
   // Start a power dial session
-  const startSession = useCallback(async (lid, name) => {
+  const startSession = useCallback(async (lid, name, startFromEntryId = null) => {
     if (!deviceReady) {
       toast.error('Phone device not ready. Please click anywhere on the page first.');
       return;
@@ -98,16 +111,34 @@ export function PowerDialerProvider({ children }) {
       toast.error('A power dial session is already running');
       return;
     }
-    const saved = JSON.parse(localStorage.getItem(SKIPPED_KEY(lid)) || '[]');
+    let saved;
+    let minId;
+    if (startFromEntryId) {
+      // Starting from a specific entry — clear old skip list
+      saved = [];
+      minId = startFromEntryId;
+      localStorage.setItem(SKIPPED_KEY(lid), '[]');
+      localStorage.setItem(MIN_ID_KEY(lid), String(minId));
+    } else {
+      // Normal start / resume — load existing state
+      saved = JSON.parse(localStorage.getItem(SKIPPED_KEY(lid)) || '[]');
+      const savedMinId = localStorage.getItem(MIN_ID_KEY(lid));
+      minId = savedMinId ? parseInt(savedMinId, 10) : null;
+    }
+    setStartFromId(minId);
     setListId(lid);
     setListName(name);
     setSkippedIds(saved);
     setPhase('dialing');
-    await dialNext(lid, saved);
+    await dialNext(lid, saved, minId);
   }, [deviceReady, dialNext, toast]);
 
   // Stop the session
   const stopSession = useCallback(() => {
+    if (listId) {
+      localStorage.removeItem(MIN_ID_KEY(listId));
+    }
+    setStartFromId(null);
     setPhase('idle');
     setListId(null);
     setListName('');
@@ -117,7 +148,7 @@ export function PowerDialerProvider({ children }) {
       clearInterval(wrapUpIntervalRef.current);
       wrapUpIntervalRef.current = null;
     }
-  }, []);
+  }, [listId]);
 
   // Submit a status during wrap-up and dial next
   const submitStatus = useCallback(async (status, followUpAt = null) => {
@@ -138,8 +169,8 @@ export function PowerDialerProvider({ children }) {
     const nextSkip = skippedIds.includes(currentEntry.id) ? skippedIds : [...skippedIds, currentEntry.id];
     setSkippedIds(nextSkip);
     localStorage.setItem(SKIPPED_KEY(listId), JSON.stringify(nextSkip));
-    await dialNext(listId, nextSkip);
-  }, [currentEntry, listId, skippedIds, dialNext]);
+    await dialNext(listId, nextSkip, startFromId);
+  }, [currentEntry, listId, skippedIds, startFromId, dialNext]);
 
   // Skip current entry — hangs up and enters wrap-up for disposition
   const skipEntry = useCallback(async () => {
@@ -183,17 +214,18 @@ export function PowerDialerProvider({ children }) {
     }
   }, [phase]);
 
-  // Detect call end: callState transition from non-idle to idle
+  // Detect call end (or call that never started): enter wrap-up when
+  // callState is idle, we're in the dialing phase, and the transition
+  // guard has been released. This also covers the case where makeCall
+  // returned early (e.g. device not ready) and callState never left idle.
   useEffect(() => {
-    const prev = prevCallStateRef.current;
     prevCallStateRef.current = callState;
 
-    if (prev !== 'idle' && callState === 'idle' && sessionActiveRef.current && phaseRef.current === 'dialing' && !dialingNextRef.current) {
-      // Call ended naturally, enter wrap-up
+    if (callState === 'idle' && !dialingNext && sessionActiveRef.current && phaseRef.current === 'dialing') {
       setPhase('wrap_up');
       setWrapUpTimer(WRAP_UP_SECONDS);
     }
-  }, [callState]);
+  }, [callState, dialingNext]);
 
   // Wrap-up countdown (respects timerPausedRef)
   useEffect(() => {
