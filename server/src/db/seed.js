@@ -6,9 +6,9 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 const agents = [
   { username: 'agent1', password: 'password1', display_name: 'Alice Johnson', twilio_identity: 'agent_alice', twilio_phone_number: '+16188223636' }, //Azekile
-  { username: 'agent2', password: 'password2', display_name: 'Bob Smith', twilio_identity: 'agent_bob', twilio_phone_number: '+18336144567' }, // Hassan
-  { username: 'agent3', password: 'password3', display_name: 'Carol Davis', twilio_identity: 'agent_carol', twilio_phone_number: null }, // Jared
-  { username: 'agent4', password: 'password4', display_name: 'Dave Wilson', twilio_identity: 'agent_dave', twilio_phone_number: '+17406196969' },
+  { username: 'agent2', password: 'password2', display_name: 'Bob Smith', twilio_identity: 'agent_bob', twilio_phone_number: '+7372325335' }, // Hassan
+  { username: 'agent3', password: 'password3', display_name: 'Carol Davis', twilio_identity: 'agent_carol', twilio_phone_number: null }, 
+  { username: 'agent4', password: 'password4', display_name: 'Dave Wilson', twilio_identity: 'agent_dave', twilio_phone_number: '+17406196969' }, // Jared
   { username: 'agent5', password: 'password5', display_name: 'Eve Martinez', twilio_identity: 'agent_eve', twilio_phone_number: '+17209731230' }, // Salim
 ];
 
