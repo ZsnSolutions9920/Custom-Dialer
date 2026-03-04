@@ -142,7 +142,6 @@ async function getFollowUps(agentId, start, end) {
   return rows;
 }
 
-<<<<<<< HEAD
 async function getNextDialableEntry(listId, skipEntryIds = [], minId = null) {
   const params = [listId, ...skipEntryIds];
   const skipClause = skipEntryIds.length > 0
@@ -152,28 +151,13 @@ async function getNextDialableEntry(listId, skipEntryIds = [], minId = null) {
   if (minId != null) {
     params.push(minId);
     minIdClause = `AND id >= $${params.length}`;
-=======
-async function getNextDialableEntry(listId, skipEntryIds = [], startFromId = null) {
-  const skipClause = skipEntryIds.length > 0
-    ? `AND id NOT IN (${skipEntryIds.map((_, i) => `$${i + 2}`).join(', ')})`
-    : '';
-  const params = [listId, ...skipEntryIds];
-  let startFromClause = '';
-  if (startFromId) {
-    params.push(startFromId);
-    startFromClause = `AND id >= $${params.length}`;
->>>>>>> 5df22b2f3c022679ccaeb925cbfb97d2ba6d1488
   }
   const { rows } = await pool.query(
     `SELECT * FROM phone_list_entries
      WHERE list_id = $1
        AND status IN ('pending', 'no_answer')
        ${skipClause}
-<<<<<<< HEAD
        ${minIdClause}
-=======
-       ${startFromClause}
->>>>>>> 5df22b2f3c022679ccaeb925cbfb97d2ba6d1488
      ORDER BY
        CASE status WHEN 'no_answer' THEN 1 WHEN 'pending' THEN 2 END,
        id ASC
