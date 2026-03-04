@@ -24,10 +24,17 @@ export const updateEntryStatus = (entryId, status, followUpAt = null) =>
 export const getFollowUps = (start, end) =>
   api.get('/phone-lists/follow-ups', { params: { start, end } }).then((r) => r.data);
 
+<<<<<<< HEAD
 export const getNextDialableEntry = (listId, skipIds = [], minId = null) => {
   const params = {};
   if (skipIds.length > 0) params.skip = skipIds.join(',');
   if (minId != null) params.minId = minId;
+=======
+export const getNextDialableEntry = (listId, skipIds = [], startFromId = null) => {
+  const params = {};
+  if (skipIds.length > 0) params.skip = skipIds.join(',');
+  if (startFromId) params.startFromId = startFromId;
+>>>>>>> 5df22b2f3c022679ccaeb925cbfb97d2ba6d1488
   return api.get(`/phone-lists/${listId}/next-dialable`, { params }).then((r) => r.data);
 };
 

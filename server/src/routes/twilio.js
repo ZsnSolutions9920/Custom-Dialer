@@ -21,8 +21,8 @@ router.post('/voice', validateTwilio, async (req, res) => {
     const agent = fromIdentity ? await agentService.findByIdentity(fromIdentity) : null;
     const agentPhone = agent?.twilio_phone_number || null;
 
-    // Outbound call from agent (To is a phone number)
-    if (To && !To.startsWith('client:') && To !== agentPhone && To !== config.twilio.phoneNumber) {
+    // Outbound call from agent (From is a browser client, To is a phone number)
+    if (From && From.startsWith('client:') && To && !To.startsWith('client:')) {
       // Block outbound calls if agent has no assigned Twilio number
       if (!agentPhone) {
         logger.warn({ agentId: agent?.id, fromIdentity }, 'Agent has no Twilio phone number assigned');
@@ -235,10 +235,29 @@ router.post('/voice-action', validateTwilio, async (req, res) => {
       twiml.say('We are sorry, no agents are available right now. Please try again later.');
       twiml.hangup();
 
-      await callService.updateCallLog(CallSid, {
+      const missedLog = await callService.updateCallLog(CallSid, {
         status: 'no-answer',
         endedAt: new Date(),
       });
+
+      // Notify agent(s) about the missed inbound call
+      if (missedLog) {
+        const io = req.app.get('io');
+        if (io) {
+          if (missedLog.agent_id) {
+            io.to(`agent:${missedLog.agent_id}`).emit('call:missed', {
+              callSid: CallSid,
+              from: missedLog.from_number,
+            });
+          } else {
+            // Shared number - notify all agents
+            io.emit('call:missed', {
+              callSid: CallSid,
+              from: missedLog.from_number,
+            });
+          }
+        }
+      }
     }
   } catch (err) {
     logger.error(err, 'Error in voice-action');
