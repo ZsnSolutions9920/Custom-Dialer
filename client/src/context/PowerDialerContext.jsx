@@ -55,11 +55,11 @@ export function PowerDialerProvider({ children }) {
   }, []);
 
   // Dial the next entry
-  const dialNext = useCallback(async (lid, skip, minId = null) => {
+  const dialNext = useCallback(async (lid, skip, minId = null, forceId = null) => {
     dialingNextRef.current = true;
     setDialingNext(true);
     try {
-      const entry = await getNextDialableEntry(lid, skip, minId);
+      const entry = await getNextDialableEntry(lid, skip, minId, forceId);
       if (!entry) {
         // List exhausted — clean up persisted skips and minId
         localStorage.removeItem(SKIPPED_KEY(lid));
@@ -130,7 +130,9 @@ export function PowerDialerProvider({ children }) {
     setListName(name);
     setSkippedIds(saved);
     setPhase('dialing');
-    await dialNext(lid, saved, minId);
+    // Pass startFromEntryId as forceId so the very first entry dialed is
+    // exactly the one the user clicked, regardless of its current status.
+    await dialNext(lid, saved, minId, startFromEntryId);
   }, [deviceReady, dialNext, toast]);
 
   // Stop the session
@@ -143,6 +145,8 @@ export function PowerDialerProvider({ children }) {
     setCurrentEntry(null);
     setSkippedIds([]);
     setStartFromId(null);
+    // Bump the counter so the leads list re-fetches and shows up-to-date statuses
+    setStatusUpdateCount((c) => c + 1);
     if (wrapUpIntervalRef.current) {
       clearInterval(wrapUpIntervalRef.current);
       wrapUpIntervalRef.current = null;

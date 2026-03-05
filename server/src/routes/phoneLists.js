@@ -71,7 +71,13 @@ router.get('/:id/next-dialable', async (req, res) => {
       ? req.query.skip.split(',').map((s) => parseInt(s, 10)).filter((n) => !isNaN(n))
       : [];
     const minId = req.query.minId ? parseInt(req.query.minId, 10) : null;
-    const entry = await phoneListService.getNextDialableEntry(req.params.id, skipIds, isNaN(minId) ? null : minId);
+    const forceId = req.query.forceId ? parseInt(req.query.forceId, 10) : null;
+    const entry = await phoneListService.getNextDialableEntry(
+      req.params.id,
+      skipIds,
+      isNaN(minId) ? null : minId,
+      forceId != null && !isNaN(forceId) ? forceId : null
+    );
     res.json(entry);
   } catch (err) {
     logger.error(err, 'Error fetching next dialable entry');

@@ -142,7 +142,21 @@ async function getFollowUps(agentId, start, end) {
   return rows;
 }
 
-async function getNextDialableEntry(listId, skipEntryIds = [], minId = null) {
+async function getNextDialableEntry(listId, skipEntryIds = [], minId = null, forceId = null) {
+  // When forceId is provided, return that exact entry first (regardless of
+  // its current status) so the power dialer starts on the contact the user
+  // clicked. Only 'do_not_contact' entries are excluded.
+  if (forceId != null) {
+    const { rows: forceRows } = await pool.query(
+      `SELECT * FROM phone_list_entries
+       WHERE list_id = $1 AND id = $2 AND status != 'do_not_contact'
+       LIMIT 1`,
+      [listId, forceId]
+    );
+    if (forceRows.length > 0) return forceRows[0];
+    // Entry not found or is do_not_contact — fall through to normal logic
+  }
+
   const params = [listId, ...skipEntryIds];
   const skipClause = skipEntryIds.length > 0
     ? `AND id NOT IN (${skipEntryIds.map((_, i) => `$${i + 2}`).join(', ')})`
