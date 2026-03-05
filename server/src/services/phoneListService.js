@@ -152,15 +152,19 @@ async function getNextDialableEntry(listId, skipEntryIds = [], minId = null) {
     params.push(minId);
     minIdClause = `AND id >= $${params.length}`;
   }
+  // When starting from a specific entry (minId set), order by id only so
+  // dialing begins at the exact entry the user chose. Without minId,
+  // prioritise no_answer entries so they get retried first.
+  const orderClause = minId != null
+    ? 'ORDER BY id ASC'
+    : 'ORDER BY CASE status WHEN \'no_answer\' THEN 1 WHEN \'pending\' THEN 2 END, id ASC';
   const { rows } = await pool.query(
     `SELECT * FROM phone_list_entries
      WHERE list_id = $1
        AND status IN ('pending', 'no_answer')
        ${skipClause}
        ${minIdClause}
-     ORDER BY
-       CASE status WHEN 'no_answer' THEN 1 WHEN 'pending' THEN 2 END,
-       id ASC
+     ${orderClause}
      LIMIT 1`,
     params
   );
