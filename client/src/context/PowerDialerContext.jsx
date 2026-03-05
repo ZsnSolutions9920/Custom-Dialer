@@ -22,10 +22,7 @@ export function PowerDialerProvider({ children }) {
   const [wrapUpTimer, setWrapUpTimer] = useState(WRAP_UP_SECONDS);
   const [timerPaused, setTimerPaused] = useState(false);
   const [statusUpdateCount, setStatusUpdateCount] = useState(0);
-<<<<<<< HEAD
   const [dialingNext, setDialingNext] = useState(false);
-=======
->>>>>>> 5df22b2f3c022679ccaeb925cbfb97d2ba6d1488
   const [startFromId, setStartFromId] = useState(null);
 
   const prevCallStateRef = useRef(callState);
@@ -34,7 +31,6 @@ export function PowerDialerProvider({ children }) {
   const phaseRef = useRef(phase);
   const timerPausedRef = useRef(false);
   const dialingNextRef = useRef(false); // guard: true while transitioning between calls
-  const startFromIdRef = useRef(null);
 
   // Keep phaseRef in sync
   useEffect(() => {
@@ -63,11 +59,7 @@ export function PowerDialerProvider({ children }) {
     dialingNextRef.current = true;
     setDialingNext(true);
     try {
-<<<<<<< HEAD
       const entry = await getNextDialableEntry(lid, skip, minId);
-=======
-      const entry = await getNextDialableEntry(lid, skip, startFromIdRef.current);
->>>>>>> 5df22b2f3c022679ccaeb925cbfb97d2ba6d1488
       if (!entry) {
         // List exhausted — clean up persisted skips and minId
         localStorage.removeItem(SKIPPED_KEY(lid));
@@ -137,58 +129,25 @@ export function PowerDialerProvider({ children }) {
     setListId(lid);
     setListName(name);
     setSkippedIds(saved);
-    setStartFromId(null);
-    startFromIdRef.current = null;
     setPhase('dialing');
     await dialNext(lid, saved, minId);
   }, [deviceReady, dialNext, toast]);
 
-  // Start a power dial session from a specific entry
-  const startSessionFromEntry = useCallback(async (lid, name, entryId) => {
-    if (!deviceReady) {
-      toast.error('Phone device not ready. Please click anywhere on the page first.');
-      return;
-    }
-    if (sessionActiveRef.current) {
-      toast.error('A power dial session is already running');
-      return;
-    }
-    setListId(lid);
-    setListName(name);
-    setSkippedIds([]);
-    setStartFromId(entryId);
-    startFromIdRef.current = entryId;
-    localStorage.removeItem(SKIPPED_KEY(lid));
-    setPhase('dialing');
-    await dialNext(lid, []);
-  }, [deviceReady, dialNext, toast]);
-
   // Stop the session
   const stopSession = useCallback(() => {
-<<<<<<< HEAD
-    if (listId) {
-      localStorage.removeItem(MIN_ID_KEY(listId));
-    }
-    setStartFromId(null);
-=======
     hangup();
->>>>>>> 5df22b2f3c022679ccaeb925cbfb97d2ba6d1488
+    // Do NOT clear localStorage — skippedIds and minId persist so resume works
     setPhase('idle');
     setListId(null);
     setListName('');
     setCurrentEntry(null);
     setSkippedIds([]);
     setStartFromId(null);
-    startFromIdRef.current = null;
     if (wrapUpIntervalRef.current) {
       clearInterval(wrapUpIntervalRef.current);
       wrapUpIntervalRef.current = null;
     }
-<<<<<<< HEAD
-  }, [listId]);
-=======
   }, [hangup]);
->>>>>>> 5df22b2f3c022679ccaeb925cbfb97d2ba6d1488
 
   // Submit a status during wrap-up and dial next
   const submitStatus = useCallback(async (status, followUpAt = null) => {
@@ -325,7 +284,6 @@ export function PowerDialerProvider({ children }) {
         wrapUpTimer,
         timerPaused,
         startSession,
-        startSessionFromEntry,
         stopSession,
         submitStatus,
         skipEntry,
