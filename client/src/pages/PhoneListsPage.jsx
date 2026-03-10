@@ -342,6 +342,8 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
   const { makeCall } = useCall();
   const { statusUpdateCount, startSession, isActive: powerDialActive } = usePowerDialer();
   const searchTimerRef = useRef(null);
+  const pageKeyBufferRef = useRef('');
+  const pageKeyTimerRef = useRef(null);
 
   const fetchEntries = async (page = 1, query = search) => {
     setLoading(true);
@@ -373,6 +375,38 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
       fetchEntries(1, value);
     }, 300);
   };
+
+  // Keyboard shortcut: press number keys to jump to that page
+  const totalPages = Math.ceil(data.total / data.limit);
+  const fetchEntriesRef = useRef(fetchEntries);
+  fetchEntriesRef.current = fetchEntries;
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Skip if user is typing in an input/select/textarea
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key < '0' || e.key > '9') return;
+      if (totalPages <= 1) return;
+
+      e.preventDefault();
+      pageKeyBufferRef.current += e.key;
+      if (pageKeyTimerRef.current) clearTimeout(pageKeyTimerRef.current);
+      pageKeyTimerRef.current = setTimeout(() => {
+        const page = parseInt(pageKeyBufferRef.current, 10);
+        pageKeyBufferRef.current = '';
+        if (page >= 1 && page <= totalPages) {
+          fetchEntriesRef.current(page);
+        }
+      }, 500);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (pageKeyTimerRef.current) clearTimeout(pageKeyTimerRef.current);
+    };
+  }, [totalPages]);
 
   const handleCall = async (entry) => {
     try {
@@ -423,8 +457,6 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
       toast.error('Failed to schedule follow-up');
     }
   };
-
-  const totalPages = Math.ceil(data.total / data.limit);
 
   return (
     <div>
@@ -520,12 +552,6 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
-                            onClick={() => handleCall(entry)}
-                            className="px-3 py-1.5 bg-brand-600 text-white text-xs font-medium rounded-lg hover:bg-brand-700 transition-colors"
-                          >
-                            Call
-                          </button>
-                          <button
                             onClick={() => startSession(listId, listName, entry.id)}
                             disabled={powerDialActive}
                             title="Power Dial from here"
@@ -534,6 +560,12 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
+                          </button>
+                          <button
+                            onClick={() => handleCall(entry)}
+                            className="px-3 py-1.5 bg-brand-600 text-white text-xs font-medium rounded-lg hover:bg-brand-700 transition-colors"
+                          >
+                            Call
                           </button>
                         </div>
                       </td>
