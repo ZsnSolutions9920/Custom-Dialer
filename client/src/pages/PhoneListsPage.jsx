@@ -226,6 +226,7 @@ function FollowUpModal({ onConfirm, onCancel }) {
   const [date, setDate] = useState(todayStr);
   const [hours, setHours] = useState(String(now.getHours()).padStart(2, '0'));
   const [minutes, setMinutes] = useState(String(now.getMinutes()).padStart(2, '0'));
+  const [notes, setNotes] = useState('');
 
   const selected = date ? new Date(`${date}T${hours}:${minutes}:00`) : null;
   const isValid = selected && !isNaN(selected.getTime()) && selected > new Date();
@@ -283,12 +284,23 @@ function FollowUpModal({ onConfirm, onCancel }) {
           </p>
         )}
 
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add notes (optional)"
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100 resize-none"
+          />
+        </div>
+
         <div className="flex justify-end gap-3">
           <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
             Cancel
           </button>
           <button
-            onClick={() => isValid && onConfirm(selected.toISOString())}
+            onClick={() => isValid && onConfirm(selected.toISOString(), notes.trim() || null)}
             disabled={!isValid}
             className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -443,14 +455,14 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
     }
   };
 
-  const handleFollowUpConfirm = async (followUpAt) => {
+  const handleFollowUpConfirm = async (followUpAt, notes) => {
     const entryId = followUpTarget;
     setFollowUpTarget(null);
     try {
-      await updateEntryStatus(entryId, 'follow_up', followUpAt);
+      await updateEntryStatus(entryId, 'follow_up', followUpAt, notes);
       setData((prev) => ({
         ...prev,
-        entries: sortByStatus(prev.entries.map((e) => (e.id === entryId ? { ...e, status: 'follow_up', follow_up_at: followUpAt } : e))),
+        entries: sortByStatus(prev.entries.map((e) => (e.id === entryId ? { ...e, status: 'follow_up', follow_up_at: followUpAt, notes } : e))),
       }));
     } catch (err) {
       console.error('Failed to schedule follow-up:', err);
@@ -546,6 +558,11 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
                         {entry.status === 'follow_up' && entry.follow_up_at && (
                           <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                             {new Date(entry.follow_up_at).toLocaleString()}
+                          </p>
+                        )}
+                        {entry.notes && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[180px]" title={entry.notes}>
+                            {entry.notes}
                           </p>
                         )}
                       </td>

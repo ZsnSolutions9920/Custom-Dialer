@@ -25,6 +25,7 @@ function FollowUpPicker({ onConfirm, onCancel }) {
   const [date, setDate] = useState(todayStr);
   const [hours, setHours] = useState(String(now.getHours()).padStart(2, '0'));
   const [minutes, setMinutes] = useState(String(now.getMinutes()).padStart(2, '0'));
+  const [notes, setNotes] = useState('');
 
   const selected = date ? new Date(`${date}T${hours}:${minutes}:00`) : null;
   const isValid = selected && !isNaN(selected.getTime()) && selected > new Date();
@@ -76,6 +77,16 @@ function FollowUpPicker({ onConfirm, onCancel }) {
         </p>
       )}
 
+      <div className="mb-2">
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Add notes (optional)"
+          rows={2}
+          className="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:text-gray-100 resize-none"
+        />
+      </div>
+
       <div className="flex gap-2">
         <button
           onClick={onCancel}
@@ -84,7 +95,7 @@ function FollowUpPicker({ onConfirm, onCancel }) {
           Cancel
         </button>
         <button
-          onClick={() => isValid && onConfirm(selected.toISOString())}
+          onClick={() => isValid && onConfirm(selected.toISOString(), notes.trim() || null)}
           disabled={!isValid}
           className="flex-1 text-xs font-medium px-2 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -135,9 +146,9 @@ export default function PowerDialerOverlay() {
     submitStatus(status);
   };
 
-  const handleFollowUpConfirm = (followUpAt) => {
+  const handleFollowUpConfirm = (followUpAt, notes) => {
     setShowFollowUp(false);
-    submitStatus('follow_up', followUpAt);
+    submitStatus('follow_up', followUpAt, notes);
   };
 
   const handleFollowUpCancel = () => {
