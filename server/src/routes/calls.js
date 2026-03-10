@@ -162,17 +162,24 @@ router.get('/stats/agent-leaderboard', authMiddleware, async (req, res) => {
 // Export call logs as CSV
 router.get('/export', authMiddleware, async (req, res) => {
   try {
-    const { search, direction, status, dateFrom, dateTo, agentId } = req.query;
-    const rows = await callService.getCallLogsForExport({ search, direction, status, dateFrom, dateTo, agentId });
+    const { search, direction, status, disposition, dateFrom, dateTo, agentId } = req.query;
+    const rows = await callService.getCallLogsForExport({ search, direction, status, disposition, dateFrom, dateTo, agentId });
 
-    const header = 'Direction,From,To,Agent,Status,Duration (s),Date,Notes,Disposition\n';
+    const header = 'Direction,From,To,Agent,Email,Trademark,Status,Duration (s),Date,Notes,Disposition\n';
     const csvRows = rows.map((r) => {
       const date = r.started_at ? new Date(r.started_at).toISOString() : '';
+      const meta = r.lead_metadata || {};
+      const trademark = Object.entries(meta).find(([k]) => {
+        const lk = k.toLowerCase();
+        return lk.includes('word mark') || lk.includes('mark') || lk.includes('trademark');
+      });
       return [
         r.direction,
         r.from_number,
         r.to_number,
         r.agent_name || '',
+        r.lead_email || '',
+        trademark ? String(trademark[1]).replace(/"/g, '""') : '',
         r.status,
         r.duration_seconds || 0,
         date,
@@ -240,8 +247,8 @@ router.get('/', authMiddleware, async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 20;
-    const { search, direction, status, dateFrom, dateTo, agentId } = req.query;
-    const result = await callService.getCallLogs({ page, limit, search, direction, status, dateFrom, dateTo, agentId });
+    const { search, direction, status, disposition, dateFrom, dateTo, agentId } = req.query;
+    const result = await callService.getCallLogs({ page, limit, search, direction, status, disposition, dateFrom, dateTo, agentId });
 
     // Backfill missing recordings from Twilio API
     const pool = require('../db/pool');

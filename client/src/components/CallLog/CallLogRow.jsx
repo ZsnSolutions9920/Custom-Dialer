@@ -2,6 +2,15 @@ import { useState } from 'react';
 import { getRecordingUrl, deleteCallLog } from '../../api/calls';
 import CallNotesModal from './CallNotesModal';
 
+function getMetaField(metadata, keys) {
+  if (!metadata || typeof metadata !== 'object') return null;
+  for (const [k, v] of Object.entries(metadata)) {
+    const lk = k.toLowerCase();
+    if (keys.some((key) => lk.includes(key))) return v;
+  }
+  return null;
+}
+
 const DISPOSITION_COLORS = {
   completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   'follow-up': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
@@ -21,6 +30,8 @@ export default function CallLogRow({ call, onCallUpdated, onCallDeleted }) {
   const time = call.started_at
     ? new Date(call.started_at).toLocaleString()
     : '-';
+
+  const trademark = getMetaField(call.lead_metadata, ['word mark', 'mark', 'trademark']);
 
   return (
     <>
@@ -53,6 +64,18 @@ export default function CallLogRow({ call, onCallUpdated, onCallDeleted }) {
           {call.contact_name && call.direction === 'outbound' && (
             <span className="block text-xs text-gray-400 dark:text-gray-500">{call.contact_name}</span>
           )}
+        </td>
+        <td className="px-4 py-3 text-sm">
+          {call.lead_email ? (
+            <a href={`mailto:${call.lead_email}`} className="text-brand-600 dark:text-brand-400 hover:underline text-xs truncate block max-w-[180px]" title={call.lead_email}>
+              {call.lead_email}
+            </a>
+          ) : (
+            <span className="text-gray-400 dark:text-gray-600">-</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-[180px] truncate" title={trademark || ''}>
+          {trademark || '-'}
         </td>
         <td className="px-4 py-3 text-sm dark:text-gray-300">{call.agent_name || '-'}</td>
         <td className="px-4 py-3 text-sm">

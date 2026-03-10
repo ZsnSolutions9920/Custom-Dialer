@@ -232,6 +232,11 @@ export default function PowerDialerOverlay() {
             <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
               {currentEntry.phone_number}
             </p>
+            {currentEntry.primary_email && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={currentEntry.primary_email}>
+                {currentEntry.primary_email}
+              </p>
+            )}
             {(() => {
               const trademark = getMetaField(currentEntry.metadata, ['word mark', 'mark', 'trademark']);
               const serial = getMetaField(currentEntry.metadata, ['serial number']);
