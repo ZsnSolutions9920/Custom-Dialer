@@ -117,11 +117,11 @@ async function getEntry(entryId) {
   return rows[0] || null;
 }
 
-async function updateEntryStatus(entryId, status, followUpAt = null) {
+async function updateEntryStatus(entryId, status, followUpAt = null, notes = null) {
   const effectiveFollowUp = status === 'follow_up' ? followUpAt : null;
   const { rows } = await pool.query(
-    `UPDATE phone_list_entries SET status = $1, follow_up_at = $2 WHERE id = $3 RETURNING *`,
-    [status, effectiveFollowUp, entryId]
+    `UPDATE phone_list_entries SET status = $1, follow_up_at = $2, notes = $3 WHERE id = $4 RETURNING *`,
+    [status, effectiveFollowUp, notes, entryId]
   );
   return rows[0] || null;
 }

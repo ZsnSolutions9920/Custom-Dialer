@@ -154,7 +154,7 @@ export function PowerDialerProvider({ children }) {
   }, [hangup]);
 
   // Submit a status during wrap-up and dial next
-  const submitStatus = useCallback(async (status, followUpAt = null) => {
+  const submitStatus = useCallback(async (status, followUpAt = null, notes = null) => {
     if (!currentEntry || !listId) return;
     if (wrapUpIntervalRef.current) {
       clearInterval(wrapUpIntervalRef.current);
@@ -163,7 +163,7 @@ export function PowerDialerProvider({ children }) {
     setTimerPaused(false);
     timerPausedRef.current = false;
     try {
-      await updateEntryStatus(currentEntry.id, status, followUpAt);
+      await updateEntryStatus(currentEntry.id, status, followUpAt, notes);
       setStatusUpdateCount((c) => c + 1);
     } catch (err) {
       console.error('Failed to update entry status:', err);

@@ -130,7 +130,7 @@ router.get('/entries/:entryId', async (req, res) => {
 // Update entry status
 router.patch('/entries/:entryId/status', async (req, res) => {
   try {
-    const { status, followUpAt } = req.body;
+    const { status, followUpAt, notes } = req.body;
     const valid = ['pending', 'called', 'no_answer', 'follow_up', 'not_interested', 'do_not_contact'];
     if (!valid.includes(status)) {
       return res.status(400).json({ error: `Invalid status. Must be one of: ${valid.join(', ')}` });
@@ -140,7 +140,7 @@ router.patch('/entries/:entryId/status', async (req, res) => {
         return res.status(400).json({ error: 'A valid followUpAt date is required for follow_up status' });
       }
     }
-    const entry = await phoneListService.updateEntryStatus(req.params.entryId, status, followUpAt || null);
+    const entry = await phoneListService.updateEntryStatus(req.params.entryId, status, followUpAt || null, notes || null);
     if (!entry) return res.status(404).json({ error: 'Entry not found' });
     res.json(entry);
   } catch (err) {

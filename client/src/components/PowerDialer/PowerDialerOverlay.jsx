@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { usePowerDialer } from '../../context/PowerDialerContext';
+import { useCall } from '../../context/CallContext';
 
 function getMetaField(metadata, keys) {
   if (!metadata || typeof metadata !== 'object') return null;
@@ -24,6 +25,7 @@ function FollowUpPicker({ onConfirm, onCancel }) {
   const [date, setDate] = useState(todayStr);
   const [hours, setHours] = useState(String(now.getHours()).padStart(2, '0'));
   const [minutes, setMinutes] = useState(String(now.getMinutes()).padStart(2, '0'));
+  const [notes, setNotes] = useState('');
 
   const selected = date ? new Date(`${date}T${hours}:${minutes}:00`) : null;
   const isValid = selected && !isNaN(selected.getTime()) && selected > new Date();
@@ -75,6 +77,16 @@ function FollowUpPicker({ onConfirm, onCancel }) {
         </p>
       )}
 
+      <div className="mb-2">
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Add notes (optional)"
+          rows={2}
+          className="w-full px-2 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-blue-400 dark:bg-gray-700 dark:text-gray-100 resize-none"
+        />
+      </div>
+
       <div className="flex gap-2">
         <button
           onClick={onCancel}
@@ -83,7 +95,7 @@ function FollowUpPicker({ onConfirm, onCancel }) {
           Cancel
         </button>
         <button
-          onClick={() => isValid && onConfirm(selected.toISOString())}
+          onClick={() => isValid && onConfirm(selected.toISOString(), notes.trim() || null)}
           disabled={!isValid}
           className="flex-1 text-xs font-medium px-2 py-1.5 rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -113,7 +125,11 @@ export default function PowerDialerOverlay() {
     resumeTimer,
   } = usePowerDialer();
 
+  const { callState, sendDTMF } = useCall();
   const [showFollowUp, setShowFollowUp] = useState(false);
+  const [showKeypad, setShowKeypad] = useState(false);
+
+  const inCall = callState !== 'idle';
 
   if (!isActive) return null;
 
@@ -130,9 +146,9 @@ export default function PowerDialerOverlay() {
     submitStatus(status);
   };
 
-  const handleFollowUpConfirm = (followUpAt) => {
+  const handleFollowUpConfirm = (followUpAt, notes) => {
     setShowFollowUp(false);
-    submitStatus('follow_up', followUpAt);
+    submitStatus('follow_up', followUpAt, notes);
   };
 
   const handleFollowUpCancel = () => {
@@ -216,6 +232,11 @@ export default function PowerDialerOverlay() {
             <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
               {currentEntry.phone_number}
             </p>
+            {currentEntry.primary_email && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={currentEntry.primary_email}>
+                {currentEntry.primary_email}
+              </p>
+            )}
             {(() => {
               const trademark = getMetaField(currentEntry.metadata, ['word mark', 'mark', 'trademark']);
               const serial = getMetaField(currentEntry.metadata, ['serial number']);
@@ -249,16 +270,44 @@ export default function PowerDialerOverlay() {
 
         {/* Dialing phase */}
         {phase === 'dialing' && (
-          <div className="flex items-center justify-between">
-            <span className="text-xs text-brand-600 dark:text-brand-400 font-medium">
-              Dialing...
-            </span>
-            <button
-              onClick={skipEntry}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-            >
-              Skip
-            </button>
+          <div>
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-brand-600 dark:text-brand-400 font-medium">
+                Dialing...
+              </span>
+              <div className="flex items-center gap-1.5">
+                {inCall && (
+                  <button
+                    onClick={() => setShowKeypad((v) => !v)}
+                    className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${showKeypad ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                    title="Toggle keypad"
+                  >
+                    Keypad
+                  </button>
+                )}
+                <button
+                  onClick={skipEntry}
+                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                >
+                  Skip
+                </button>
+              </div>
+            </div>
+
+            {/* In-call DTMF keypad */}
+            {inCall && showKeypad && (
+              <div className="mt-3 grid grid-cols-3 gap-1.5">
+                {['1','2','3','4','5','6','7','8','9','*','0','#'].map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => sendDTMF(key)}
+                    className="bg-gray-50 dark:bg-gray-700 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 active:bg-brand-100 dark:active:bg-brand-900/50 rounded-lg py-2.5 text-lg font-medium transition-colors dark:text-gray-200"
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

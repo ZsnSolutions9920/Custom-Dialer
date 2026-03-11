@@ -22,7 +22,7 @@ export default function CallLogFilters({ filters, onFilterChange }) {
     onFilterChange({});
   };
 
-  const hasFilters = filters.search || filters.direction || filters.status || filters.dateFrom || filters.dateTo;
+  const hasFilters = filters.search || filters.direction || filters.status || filters.disposition || filters.dateFrom || filters.dateTo;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-card border border-gray-100 dark:border-gray-700 p-4">
@@ -56,6 +56,20 @@ export default function CallLogFilters({ filters, onFilterChange }) {
           <option value="busy">Busy</option>
           <option value="failed">Failed</option>
           <option value="canceled">Canceled</option>
+        </select>
+
+        <select
+          value={filters.disposition || ''}
+          onChange={(e) => handleChange('disposition', e.target.value)}
+          className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 bg-white dark:bg-gray-700 dark:text-gray-100 w-full sm:w-auto"
+        >
+          <option value="">All Dispositions</option>
+          <option value="completed">Completed</option>
+          <option value="follow-up">Follow Up</option>
+          <option value="not-interested">Not Interested</option>
+          <option value="voicemail">Voicemail</option>
+          <option value="wrong-number">Wrong Number</option>
+          <option value="callback-requested">Callback Requested</option>
         </select>
 
         <input

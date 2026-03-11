@@ -226,6 +226,7 @@ function FollowUpModal({ onConfirm, onCancel }) {
   const [date, setDate] = useState(todayStr);
   const [hours, setHours] = useState(String(now.getHours()).padStart(2, '0'));
   const [minutes, setMinutes] = useState(String(now.getMinutes()).padStart(2, '0'));
+  const [notes, setNotes] = useState('');
 
   const selected = date ? new Date(`${date}T${hours}:${minutes}:00`) : null;
   const isValid = selected && !isNaN(selected.getTime()) && selected > new Date();
@@ -283,12 +284,23 @@ function FollowUpModal({ onConfirm, onCancel }) {
           </p>
         )}
 
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add notes (optional)"
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100 resize-none"
+          />
+        </div>
+
         <div className="flex justify-end gap-3">
           <button onClick={onCancel} className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
             Cancel
           </button>
           <button
-            onClick={() => isValid && onConfirm(selected.toISOString())}
+            onClick={() => isValid && onConfirm(selected.toISOString(), notes.trim() || null)}
             disabled={!isValid}
             className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -342,6 +354,8 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
   const { makeCall } = useCall();
   const { statusUpdateCount, startSession, isActive: powerDialActive } = usePowerDialer();
   const searchTimerRef = useRef(null);
+  const pageKeyBufferRef = useRef('');
+  const pageKeyTimerRef = useRef(null);
 
   const fetchEntries = async (page = 1, query = search) => {
     setLoading(true);
@@ -373,6 +387,38 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
       fetchEntries(1, value);
     }, 300);
   };
+
+  // Keyboard shortcut: press number keys to jump to that page
+  const totalPages = Math.ceil(data.total / data.limit);
+  const fetchEntriesRef = useRef(fetchEntries);
+  fetchEntriesRef.current = fetchEntries;
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Skip if user is typing in an input/select/textarea
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key < '0' || e.key > '9') return;
+      if (totalPages <= 1) return;
+
+      e.preventDefault();
+      pageKeyBufferRef.current += e.key;
+      if (pageKeyTimerRef.current) clearTimeout(pageKeyTimerRef.current);
+      pageKeyTimerRef.current = setTimeout(() => {
+        const page = parseInt(pageKeyBufferRef.current, 10);
+        pageKeyBufferRef.current = '';
+        if (page >= 1 && page <= totalPages) {
+          fetchEntriesRef.current(page);
+        }
+      }, 500);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (pageKeyTimerRef.current) clearTimeout(pageKeyTimerRef.current);
+    };
+  }, [totalPages]);
 
   const handleCall = async (entry) => {
     try {
@@ -409,22 +455,20 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
     }
   };
 
-  const handleFollowUpConfirm = async (followUpAt) => {
+  const handleFollowUpConfirm = async (followUpAt, notes) => {
     const entryId = followUpTarget;
     setFollowUpTarget(null);
     try {
-      await updateEntryStatus(entryId, 'follow_up', followUpAt);
+      await updateEntryStatus(entryId, 'follow_up', followUpAt, notes);
       setData((prev) => ({
         ...prev,
-        entries: sortByStatus(prev.entries.map((e) => (e.id === entryId ? { ...e, status: 'follow_up', follow_up_at: followUpAt } : e))),
+        entries: sortByStatus(prev.entries.map((e) => (e.id === entryId ? { ...e, status: 'follow_up', follow_up_at: followUpAt, notes } : e))),
       }));
     } catch (err) {
       console.error('Failed to schedule follow-up:', err);
       toast.error('Failed to schedule follow-up');
     }
   };
-
-  const totalPages = Math.ceil(data.total / data.limit);
 
   return (
     <div>
@@ -516,15 +560,14 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
                             {new Date(entry.follow_up_at).toLocaleString()}
                           </p>
                         )}
+                        {entry.notes && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[180px]" title={entry.notes}>
+                            {entry.notes}
+                          </p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1.5">
-                          <button
-                            onClick={() => handleCall(entry)}
-                            className="px-3 py-1.5 bg-brand-600 text-white text-xs font-medium rounded-lg hover:bg-brand-700 transition-colors"
-                          >
-                            Call
-                          </button>
                           <button
                             onClick={() => startSession(listId, listName, entry.id)}
                             disabled={powerDialActive}
@@ -534,6 +577,12 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                             </svg>
+                          </button>
+                          <button
+                            onClick={() => handleCall(entry)}
+                            className="px-3 py-1.5 bg-brand-600 text-white text-xs font-medium rounded-lg hover:bg-brand-700 transition-colors"
+                          >
+                            Call
                           </button>
                         </div>
                       </td>

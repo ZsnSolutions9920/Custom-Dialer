@@ -84,7 +84,7 @@ async function updateCallLog(callSid, updates) {
   return rows[0] || null;
 }
 
-async function getCallLogs({ page = 1, limit = 20, search, direction, status, dateFrom, dateTo, agentId }) {
+async function getCallLogs({ page = 1, limit = 20, search, direction, status, disposition, dateFrom, dateTo, agentId }) {
   const conditions = [];
   const values = [];
   let idx = 1;
@@ -101,6 +101,10 @@ async function getCallLogs({ page = 1, limit = 20, search, direction, status, da
   if (status) {
     conditions.push(`cl.status = $${idx++}`);
     values.push(status);
+  }
+  if (disposition) {
+    conditions.push(`cl.disposition = $${idx++}`);
+    values.push(disposition);
   }
   if (dateFrom) {
     conditions.push(`cl.started_at >= $${idx++}`);
@@ -120,10 +124,18 @@ async function getCallLogs({ page = 1, limit = 20, search, direction, status, da
 
   const { rows } = await pool.query(
     `SELECT cl.*, a.display_name as agent_name,
-            con.name as contact_name
+            con.name as contact_name,
+            ple.primary_email as lead_email,
+            ple.name as lead_name,
+            ple.metadata as lead_metadata
      FROM call_logs cl
      LEFT JOIN agents a ON cl.agent_id = a.id
      LEFT JOIN contacts con ON (cl.from_number = con.phone_number OR cl.to_number = con.phone_number)
+     LEFT JOIN LATERAL (
+       SELECT primary_email, name, metadata FROM phone_list_entries
+       WHERE phone_number = cl.to_number OR phone_number = cl.from_number
+       ORDER BY id DESC LIMIT 1
+     ) ple ON true
      ${where}
      ORDER BY cl.started_at DESC
      LIMIT $${idx} OFFSET $${idx + 1}`,
@@ -144,7 +156,7 @@ async function updateCallNotes(callId, { notes, disposition }) {
   return rows[0] || null;
 }
 
-async function getCallLogsForExport({ search, direction, status, dateFrom, dateTo, agentId }) {
+async function getCallLogsForExport({ search, direction, status, disposition, dateFrom, dateTo, agentId }) {
   const conditions = [];
   const values = [];
   let idx = 1;
@@ -161,6 +173,10 @@ async function getCallLogsForExport({ search, direction, status, dateFrom, dateT
   if (status) {
     conditions.push(`cl.status = $${idx++}`);
     values.push(status);
+  }
+  if (disposition) {
+    conditions.push(`cl.disposition = $${idx++}`);
+    values.push(disposition);
   }
   if (dateFrom) {
     conditions.push(`cl.started_at >= $${idx++}`);
@@ -179,10 +195,18 @@ async function getCallLogsForExport({ search, direction, status, dateFrom, dateT
 
   const { rows } = await pool.query(
     `SELECT cl.*, a.display_name as agent_name,
-            con.name as contact_name
+            con.name as contact_name,
+            ple.primary_email as lead_email,
+            ple.name as lead_name,
+            ple.metadata as lead_metadata
      FROM call_logs cl
      LEFT JOIN agents a ON cl.agent_id = a.id
      LEFT JOIN contacts con ON (cl.from_number = con.phone_number OR cl.to_number = con.phone_number)
+     LEFT JOIN LATERAL (
+       SELECT primary_email, name, metadata FROM phone_list_entries
+       WHERE phone_number = cl.to_number OR phone_number = cl.from_number
+       ORDER BY id DESC LIMIT 1
+     ) ple ON true
      ${where}
      ORDER BY cl.started_at DESC`,
     values
