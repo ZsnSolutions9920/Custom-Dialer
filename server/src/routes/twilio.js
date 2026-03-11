@@ -3,6 +3,8 @@ const VoiceResponse = require('twilio').twiml.VoiceResponse;
 const config = require('../config');
 const agentService = require('../services/agentService');
 const callService = require('../services/callService');
+const contactService = require('../services/contactService');
+const phoneListService = require('../services/phoneListService');
 const validateTwilio = require('../middleware/validateTwilio');
 const logger = require('../utils/logger');
 
@@ -185,6 +187,21 @@ router.post('/voice', validateTwilio, async (req, res) => {
         agentId: ownerAgent ? ownerAgent.id : undefined,
       });
 
+      // Look up caller name from phone list entries and contacts
+      let callerName = null;
+      try {
+        const agentIdForLookup = ownerAgent ? ownerAgent.id : null;
+        // Check phone list entries first (power dial sheets)
+        callerName = await phoneListService.findNameByPhone(From, agentIdForLookup);
+        // Fall back to contacts table
+        if (!callerName) {
+          const contact = await contactService.getContactByPhone(From);
+          if (contact) callerName = contact.name;
+        }
+      } catch (err) {
+        logger.warn({ err, From }, 'Failed to look up caller name');
+      }
+
       // Notify the relevant agent(s) of incoming call via Socket.IO
       const io = req.app.get('io');
       if (io) {
@@ -192,12 +209,14 @@ router.post('/voice', validateTwilio, async (req, res) => {
           io.to(`agent:${ownerAgent.id}`).emit('call:incoming', {
             callSid: CallSid,
             from: From,
+            callerName,
           });
         } else {
           // Shared number — notify all agents
           io.emit('call:incoming', {
             callSid: CallSid,
             from: From,
+            callerName,
           });
         }
       }

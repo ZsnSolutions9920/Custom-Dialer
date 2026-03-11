@@ -7,7 +7,7 @@ function formatTime(seconds) {
 }
 
 export default function ActiveCallBanner() {
-  const { callState, remoteNumber, callDirection, callTimer, isMuted, isHeld, hangup, callError, clearCallError } = useCall();
+  const { callState, remoteNumber, callerName, callDirection, callTimer, isMuted, isHeld, hangup, callError, clearCallError } = useCall();
 
   // Show error banner even when idle (errors can persist between calls)
   if (callState === 'idle' && !callError) return null;
@@ -57,7 +57,7 @@ export default function ActiveCallBanner() {
           <div className="flex items-center gap-2 md:gap-3 flex-wrap">
             <span className="animate-pulse w-2.5 h-2.5 bg-white rounded-full flex-shrink-0" />
             <span className="font-medium">
-              {callDirection === 'inbound' ? 'Inbound' : 'Outbound'}: {remoteNumber}
+              {callDirection === 'inbound' ? 'Inbound' : 'Outbound'}: {callerName ? `${callerName} (${remoteNumber})` : remoteNumber}
             </span>
             <span className="opacity-80">{stateLabels[callState]}</span>
             {isMuted && <span className="bg-white bg-opacity-20 px-2 py-0.5 rounded text-xs">Muted</span>}

@@ -39,7 +39,7 @@ function createRingtone() {
 }
 
 export default function IncomingCallModal() {
-  const { incomingCall, acceptCall, rejectCall, remoteNumber } = useCall();
+  const { incomingCall, acceptCall, rejectCall, remoteNumber, callerName } = useCall();
   const ringtoneRef = useRef(null);
 
   useEffect(() => {
@@ -86,6 +86,9 @@ export default function IncomingCallModal() {
             </svg>
           </div>
           <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Incoming Call</h3>
+          {callerName && (
+            <p className="text-gray-800 dark:text-gray-100 font-semibold mt-1">{callerName}</p>
+          )}
           <p className="text-gray-600 dark:text-gray-300 font-mono mt-1">{remoteNumber || 'Unknown'}</p>
         </div>
         <div className="flex gap-3 justify-center">

@@ -203,6 +203,54 @@ async function deleteList(listId) {
   return rowCount > 0;
 }
 
+// Look up a contact name by phone number across all phone list entries.
+// Strips non-digit characters (except leading +) for comparison.
+// If agentId is provided, searches that agent's lists first.
+async function findNameByPhone(phoneNumber, agentId = null) {
+  // Normalize to digits only for comparison
+  const digits = phoneNumber.replace(/\D/g, '');
+  if (!digits) return null;
+
+  // Try agent's lists first, then all lists
+  const queries = agentId
+    ? [
+        {
+          sql: `SELECT ple.name FROM phone_list_entries ple
+                JOIN phone_lists pl ON pl.id = ple.list_id
+                WHERE pl.agent_id = $1
+                  AND regexp_replace(ple.phone_number, '\\D', '', 'g') = $2
+                  AND ple.name IS NOT NULL AND ple.name != ''
+                ORDER BY ple.called_at DESC NULLS LAST, ple.id DESC
+                LIMIT 1`,
+          params: [agentId, digits],
+        },
+        {
+          sql: `SELECT ple.name FROM phone_list_entries ple
+                WHERE regexp_replace(ple.phone_number, '\\D', '', 'g') = $1
+                  AND ple.name IS NOT NULL AND ple.name != ''
+                ORDER BY ple.called_at DESC NULLS LAST, ple.id DESC
+                LIMIT 1`,
+          params: [digits],
+        },
+      ]
+    : [
+        {
+          sql: `SELECT ple.name FROM phone_list_entries ple
+                WHERE regexp_replace(ple.phone_number, '\\D', '', 'g') = $1
+                  AND ple.name IS NOT NULL AND ple.name != ''
+                ORDER BY ple.called_at DESC NULLS LAST, ple.id DESC
+                LIMIT 1`,
+          params: [digits],
+        },
+      ];
+
+  for (const q of queries) {
+    const { rows } = await pool.query(q.sql, q.params);
+    if (rows.length > 0) return rows[0].name;
+  }
+  return null;
+}
+
 module.exports = {
   createList,
   addEntries,
@@ -215,4 +263,5 @@ module.exports = {
   getNextDialableEntry,
   getPowerDialProgress,
   deleteList,
+  findNameByPhone,
 };

@@ -50,6 +50,7 @@ export function CallProvider({ children }) {
   const [transferInProgress, setTransferInProgress] = useState(null);
   const initPendingRef = useRef(false);
   const notificationRef = useRef(null);
+  const [callerName, setCallerName] = useState(null);
   const [callError, setCallError] = useState(null); // { message, timestamp, recoverable }
   const errorClearTimerRef = useRef(null);
   const deviceRecoveryRef = useRef(false);
@@ -249,6 +250,7 @@ export function CallProvider({ children }) {
     setParticipantCallSid(null);
     setCallDirection(null);
     setRemoteNumber(null);
+    setCallerName(null);
     setCallTimer(0);
     setTransferInProgress(null);
   }, []);
@@ -289,6 +291,13 @@ export function CallProvider({ children }) {
       }
     };
 
+    const onIncoming = (data) => {
+      if (data.callerName) {
+        setCallerName(data.callerName);
+      }
+    };
+
+    socket.on('call:incoming', onIncoming);
     socket.on('call:outbound', onOutbound);
     socket.on('call:conference-started', onConfStarted);
     socket.on('call:participant-joined', onParticipantJoined);
@@ -297,6 +306,7 @@ export function CallProvider({ children }) {
     socket.on('call:error', onCallError);
 
     return () => {
+      socket.off('call:incoming', onIncoming);
       socket.off('call:outbound', onOutbound);
       socket.off('call:conference-started', onConfStarted);
       socket.off('call:participant-joined', onParticipantJoined);
@@ -482,6 +492,7 @@ export function CallProvider({ children }) {
         conferenceSid,
         callDirection,
         remoteNumber,
+        callerName,
         callTimer,
         transferInProgress,
         callError,
