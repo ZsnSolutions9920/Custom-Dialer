@@ -33,4 +33,5 @@ module.exports = {
     phoneNumber: process.env.TWILIO_PHONE_NUMBER,
   },
   serverBaseUrl: process.env.SERVER_BASE_URL,
+  openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
 };

@@ -79,7 +79,10 @@ export default function Sidebar({ open, onClose, darkMode, onToggleDarkMode }) {
         <NavLink to="/history" className={linkClass} onClick={onClose}>
           Call History
         </NavLink>
-       
+        <NavLink to="/power-email" className={linkClass} onClick={onClose}>
+          Power Email
+        </NavLink>
+
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-2.5">

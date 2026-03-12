@@ -15,6 +15,7 @@ import ContactsPage from './pages/ContactsPage';
 import PhoneListsPage from './pages/PhoneListsPage';
 import InboundCallsPage from './pages/InboundCallsPage';
 import CalendarPage from './pages/CalendarPage';
+import PowerEmailPage from './pages/PowerEmailPage';
 
 function AuthenticatedApp() {
   return (
@@ -32,6 +33,7 @@ function AuthenticatedApp() {
                 <Route path="inbound" element={<InboundCallsPage />} />
                 <Route path="phone-lists" element={<PhoneListsPage />} />
                 <Route path="calendar" element={<CalendarPage />} />
+                <Route path="power-email" element={<PowerEmailPage />} />
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
