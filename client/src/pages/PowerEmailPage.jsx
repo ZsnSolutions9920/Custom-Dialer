@@ -34,74 +34,83 @@ const QUILL_MODULES = {
 // ─── Sub-views ──────────────────────────────────────────────────────
 
 function SmtpSettings() {
-  const [config, setConfig] = useState(null); // null = loading, false = no config, object = existing config
+  const [configs, setConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
+  const [editingId, setEditingId] = useState(null); // null = list view, 'new' = add form, number = edit form
   const [form, setForm] = useState({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true, imap_host: '', imap_port: 993, imap_secure: true });
-  const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState(null);
+  const [testingId, setTestingId] = useState(null);
+  const [testResults, setTestResults] = useState({});
   const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // config id to confirm delete
+  const [deleting, setDeleting] = useState(false);
 
-  const fetchConfig = useCallback(async () => {
+  const fetchConfigs = useCallback(async () => {
     setLoading(true);
-    try {
-      const configs = await emailApi.getSmtpConfigs();
-      if (configs.length > 0) {
-        setConfig(configs[0]);
-      } else {
-        setConfig(false);
-      }
-    } catch { setConfig(false); }
+    try { setConfigs(await emailApi.getSmtpConfigs()); } catch { setConfigs([]); }
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchConfig(); }, [fetchConfig]);
+  useEffect(() => { fetchConfigs(); }, [fetchConfigs]);
 
-  // Auto-enter edit mode if no config exists
-  useEffect(() => {
-    if (config === false && !editing) {
-      setForm({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true, imap_host: '', imap_port: 993, imap_secure: true });
-      setEditing(true);
-    }
-  }, [config, editing]);
+  const startAdd = () => {
+    setForm({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true, imap_host: '', imap_port: 993, imap_secure: true });
+    setEditingId('new');
+  };
+
+  const startEdit = (cfg) => {
+    setForm({ ...cfg, password: '' });
+    setEditingId(cfg.id);
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (config && config.id) {
-        await emailApi.updateSmtpConfig(config.id, form);
-      } else {
+      if (editingId === 'new') {
         await emailApi.saveSmtpConfig(form);
+      } else {
+        await emailApi.updateSmtpConfig(editingId, form);
       }
-      setEditing(false);
-      fetchConfig();
+      setEditingId(null);
+      fetchConfigs();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to save');
     }
     setSaving(false);
   };
 
-  const handleTest = async () => {
-    if (!config) return;
-    setTesting(true);
-    setTestResult(null);
+  const handleTest = async (id) => {
+    setTestingId(id);
+    setTestResults((prev) => ({ ...prev, [id]: null }));
     try {
-      await emailApi.testSmtpConnection(config.id);
-      setTestResult({ success: true });
+      await emailApi.testSmtpConnection(id);
+      setTestResults((prev) => ({ ...prev, [id]: { success: true } }));
     } catch (err) {
-      setTestResult({ success: false, error: err.response?.data?.error || 'Connection failed' });
+      setTestResults((prev) => ({ ...prev, [id]: { success: false, error: err.response?.data?.error || 'Connection failed' } }));
     }
-    setTesting(false);
+    setTestingId(null);
+  };
+
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      await emailApi.deleteSmtpConfig(deleteConfirm);
+      setDeleteConfirm(null);
+      fetchConfigs();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete');
+    }
+    setDeleting(false);
   };
 
   if (loading) return <p className="text-gray-500 text-sm">Loading...</p>;
 
-  // Edit / Setup form
-  if (editing) {
-    const isNew = !config || !config.id;
+  // Edit / Add form
+  if (editingId !== null) {
+    const isNew = editingId === 'new';
     return (
       <div className="max-w-lg mx-auto">
-        <h3 className="text-lg font-semibold mb-4 dark:text-white">{isNew ? 'Setup SMTP Account' : 'Edit SMTP Account'}</h3>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">{isNew ? 'Add SMTP Account' : 'Edit SMTP Account'}</h3>
         <div className="space-y-3">
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Outgoing (SMTP)</p>
           {[
@@ -155,64 +164,95 @@ function SmtpSettings() {
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50">
               {saving ? 'Saving...' : 'Save'}
             </button>
-            {!isNew && (
-              <button onClick={() => setEditing(false)} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
-            )}
+            <button onClick={() => setEditingId(null)} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
           </div>
         </div>
       </div>
     );
   }
 
-  // Display current config
+  // List view
   return (
-    <div className="max-w-lg mx-auto">
-      <h3 className="text-lg font-semibold mb-4 dark:text-white">SMTP Configuration</h3>
-      {config && (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="font-semibold text-gray-900 dark:text-white text-lg">{config.label || 'SMTP Account'}</p>
-            <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2.5 py-1 rounded-full font-medium">Configured</span>
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <p className="text-gray-500 dark:text-gray-400">SMTP Host</p>
-              <p className="font-medium text-gray-900 dark:text-white">{config.host}:{config.port}</p>
+    <div className="max-w-2xl mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold dark:text-white">SMTP Accounts</h3>
+        <button onClick={startAdd} className="px-3 py-1.5 text-sm font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700">+ Add Account</button>
+      </div>
+
+      {configs.length === 0 ? (
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+          <p className="text-sm">No SMTP accounts configured yet.</p>
+          <button onClick={startAdd} className="mt-3 text-sm text-brand-600 dark:text-brand-400 hover:underline">Add your first SMTP account</button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {configs.map((cfg) => (
+            <div key={cfg.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-gray-900 dark:text-white text-lg">{cfg.label || 'SMTP Account'}</p>
+                <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2.5 py-1 rounded-full font-medium">Configured</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">SMTP Host</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{cfg.host}:{cfg.port}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">SMTP Security</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{cfg.secure ? 'TLS/SSL' : 'None'}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">Username</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{cfg.username}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">From</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{cfg.from_name ? `${cfg.from_name} <${cfg.from_email}>` : cfg.from_email}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">IMAP Host</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{cfg.imap_host ? `${cfg.imap_host}:${cfg.imap_port}` : <span className="text-yellow-600 dark:text-yellow-400">Not configured</span>}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 dark:text-gray-400">IMAP Security</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{cfg.imap_host ? (cfg.imap_secure ? 'TLS/SSL' : 'None') : '—'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                {testResults[cfg.id] && (
+                  <span className={`text-xs font-medium mr-auto ${testResults[cfg.id].success ? 'text-green-600' : 'text-red-600'}`}>
+                    {testResults[cfg.id].success ? 'Connection successful!' : testResults[cfg.id].error}
+                  </span>
+                )}
+                <div className="flex items-center gap-2 ml-auto">
+                  <button onClick={() => handleTest(cfg.id)} disabled={testingId === cfg.id}
+                    className="px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50">
+                    {testingId === cfg.id ? 'Testing...' : 'Test Connection'}
+                  </button>
+                  <button onClick={() => startEdit(cfg)}
+                    className="px-3 py-1.5 text-xs font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700">Edit</button>
+                  <button onClick={() => setDeleteConfirm(cfg.id)}
+                    className="px-3 py-1.5 text-xs font-medium border border-red-200 dark:border-red-700 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">Delete</button>
+                </div>
+              </div>
             </div>
-            <div>
-              <p className="text-gray-500 dark:text-gray-400">SMTP Security</p>
-              <p className="font-medium text-gray-900 dark:text-white">{config.secure ? 'TLS/SSL' : 'None'}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 dark:text-gray-400">Username</p>
-              <p className="font-medium text-gray-900 dark:text-white">{config.username}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 dark:text-gray-400">From</p>
-              <p className="font-medium text-gray-900 dark:text-white">{config.from_name ? `${config.from_name} <${config.from_email}>` : config.from_email}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 dark:text-gray-400">IMAP Host</p>
-              <p className="font-medium text-gray-900 dark:text-white">{config.imap_host ? `${config.imap_host}:${config.imap_port}` : <span className="text-yellow-600 dark:text-yellow-400">Not configured</span>}</p>
-            </div>
-            <div>
-              <p className="text-gray-500 dark:text-gray-400">IMAP Security</p>
-              <p className="font-medium text-gray-900 dark:text-white">{config.imap_host ? (config.imap_secure ? 'TLS/SSL' : 'None') : '—'}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
-            {testResult && (
-              <span className={`text-xs font-medium mr-auto ${testResult.success ? 'text-green-600' : 'text-red-600'}`}>
-                {testResult.success ? 'Connection successful!' : testResult.error}
-              </span>
-            )}
-            <div className="flex items-center gap-2 ml-auto">
-              <button onClick={handleTest} disabled={testing}
-                className="px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50">
-                {testing ? 'Testing...' : 'Test Connection'}
+          ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete SMTP Account</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">Are you sure you want to delete this SMTP account? This action cannot be undone.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteConfirm(null)} disabled={deleting}
+                className="px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                {deleting ? 'Deleting...' : 'Delete'}
               </button>
-              <button onClick={() => { setForm({ ...config, password: '' }); setEditing(true); }}
-                className="px-3 py-1.5 text-xs font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700">Edit</button>
             </div>
           </div>
         </div>
