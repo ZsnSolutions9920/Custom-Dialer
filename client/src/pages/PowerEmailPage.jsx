@@ -33,64 +33,81 @@ const QUILL_MODULES = {
 // ─── Sub-views ──────────────────────────────────────────────────────
 
 function SmtpSettings() {
-  const [configs, setConfigs] = useState([]);
+  const [config, setConfig] = useState(null); // null = loading, false = no config, object = existing config
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null); // null = list, 'new' = new form, id = edit form
-  const [form, setForm] = useState({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: false });
-  const [testing, setTesting] = useState(null);
+  const [editing, setEditing] = useState(false);
+  const [form, setForm] = useState({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true });
+  const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const fetchConfigs = useCallback(async () => {
+  const fetchConfig = useCallback(async () => {
     setLoading(true);
-    try { setConfigs(await emailApi.getSmtpConfigs()); } catch { }
+    try {
+      const configs = await emailApi.getSmtpConfigs();
+      if (configs.length > 0) {
+        setConfig(configs[0]);
+      } else {
+        setConfig(false);
+      }
+    } catch { setConfig(false); }
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetchConfigs(); }, [fetchConfigs]);
+  useEffect(() => { fetchConfig(); }, [fetchConfig]);
+
+  // Auto-enter edit mode if no config exists
+  useEffect(() => {
+    if (config === false && !editing) {
+      setForm({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true });
+      setEditing(true);
+    }
+  }, [config, editing]);
 
   const handleSave = async () => {
+    setSaving(true);
     try {
-      if (editing === 'new') {
-        await emailApi.saveSmtpConfig(form);
+      if (config && config.id) {
+        await emailApi.updateSmtpConfig(config.id, form);
       } else {
-        await emailApi.updateSmtpConfig(editing, form);
+        await emailApi.saveSmtpConfig(form);
       }
-      setEditing(null);
-      fetchConfigs();
+      setEditing(false);
+      fetchConfig();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to save');
     }
+    setSaving(false);
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Delete this SMTP configuration?')) return;
-    await emailApi.deleteSmtpConfig(id);
-    fetchConfigs();
-  };
-
-  const handleTest = async (id) => {
-    setTesting(id);
+  const handleTest = async () => {
+    if (!config) return;
+    setTesting(true);
     setTestResult(null);
     try {
-      await emailApi.testSmtpConnection(id);
-      setTestResult({ id, success: true });
+      await emailApi.testSmtpConnection(config.id);
+      setTestResult({ success: true });
     } catch (err) {
-      setTestResult({ id, success: false, error: err.response?.data?.error || 'Connection failed' });
+      setTestResult({ success: false, error: err.response?.data?.error || 'Connection failed' });
     }
-    setTesting(null);
+    setTesting(false);
   };
 
+  if (loading) return <p className="text-gray-500 text-sm">Loading...</p>;
+
+  // Edit / Setup form
   if (editing) {
+    const isNew = !config || !config.id;
     return (
       <div className="max-w-lg mx-auto">
-        <h3 className="text-lg font-semibold mb-4 dark:text-white">{editing === 'new' ? 'Add SMTP Account' : 'Edit SMTP Account'}</h3>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white">{isNew ? 'Setup SMTP Account' : 'Edit SMTP Account'}</h3>
         <div className="space-y-3">
           {[
             { key: 'label', label: 'Label', placeholder: 'e.g. Work Gmail' },
             { key: 'host', label: 'SMTP Host', placeholder: 'smtp.gmail.com' },
             { key: 'port', label: 'Port', type: 'number' },
             { key: 'username', label: 'Username / Email' },
-            { key: 'password', label: 'Password', type: 'password', placeholder: editing !== 'new' ? '(leave blank to keep current)' : '' },
+            { key: 'password', label: 'Password', type: 'password', placeholder: !isNew ? '(leave blank to keep current)' : '' },
             { key: 'from_email', label: 'From Email' },
             { key: 'from_name', label: 'From Name' },
           ].map(({ key, label, type, placeholder }) => (
@@ -109,53 +126,62 @@ function SmtpSettings() {
             <input type="checkbox" checked={form.secure} onChange={(e) => setForm({ ...form, secure: e.target.checked })} className="rounded" />
             Use TLS/SSL
           </label>
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <input type="checkbox" checked={form.is_default} onChange={(e) => setForm({ ...form, is_default: e.target.checked })} className="rounded" />
-            Set as default
-          </label>
           <div className="flex gap-2 pt-2">
-            <button onClick={handleSave} className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700">Save</button>
-            <button onClick={() => setEditing(null)} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
+            <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50">
+              {saving ? 'Saving...' : 'Save'}
+            </button>
+            {!isNew && (
+              <button onClick={() => setEditing(false)} className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
+            )}
           </div>
         </div>
       </div>
     );
   }
 
+  // Display current config
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold dark:text-white">SMTP Accounts</h3>
-        <button onClick={() => { setForm({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: false }); setEditing('new'); }}
-          className="px-3 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700">+ Add Account</button>
-      </div>
-      {loading ? <p className="text-gray-500 text-sm">Loading...</p> : configs.length === 0 ? (
-        <p className="text-gray-500 dark:text-gray-400 text-sm">No SMTP accounts configured. Add one to start sending emails.</p>
-      ) : (
-        <div className="space-y-3">
-          {configs.map((c) => (
-            <div key={c.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">{c.label} {c.is_default && <span className="text-xs bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full ml-2">Default</span>}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{c.from_email} &middot; {c.host}:{c.port}</p>
-              </div>
-              <div className="flex items-center gap-2">
-                {testResult?.id === c.id && (
-                  <span className={`text-xs font-medium ${testResult.success ? 'text-green-600' : 'text-red-600'}`}>
-                    {testResult.success ? 'Connected!' : testResult.error}
-                  </span>
-                )}
-                <button onClick={() => handleTest(c.id)} disabled={testing === c.id}
-                  className="px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50">
-                  {testing === c.id ? 'Testing...' : 'Test'}
-                </button>
-                <button onClick={() => { setForm({ ...c, password: '' }); setEditing(c.id); }}
-                  className="px-3 py-1.5 text-xs font-medium text-brand-600 dark:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/20 rounded-lg">Edit</button>
-                <button onClick={() => handleDelete(c.id)}
-                  className="px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg">Delete</button>
-              </div>
+    <div className="max-w-lg mx-auto">
+      <h3 className="text-lg font-semibold mb-4 dark:text-white">SMTP Configuration</h3>
+      {config && (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="font-semibold text-gray-900 dark:text-white text-lg">{config.label || 'SMTP Account'}</p>
+            <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2.5 py-1 rounded-full font-medium">Configured</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-gray-500 dark:text-gray-400">Host</p>
+              <p className="font-medium text-gray-900 dark:text-white">{config.host}:{config.port}</p>
             </div>
-          ))}
+            <div>
+              <p className="text-gray-500 dark:text-gray-400">Security</p>
+              <p className="font-medium text-gray-900 dark:text-white">{config.secure ? 'TLS/SSL' : 'None'}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400">Username</p>
+              <p className="font-medium text-gray-900 dark:text-white">{config.username}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400">From</p>
+              <p className="font-medium text-gray-900 dark:text-white">{config.from_name ? `${config.from_name} <${config.from_email}>` : config.from_email}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+            {testResult && (
+              <span className={`text-xs font-medium mr-auto ${testResult.success ? 'text-green-600' : 'text-red-600'}`}>
+                {testResult.success ? 'Connection successful!' : testResult.error}
+              </span>
+            )}
+            <div className="flex items-center gap-2 ml-auto">
+              <button onClick={handleTest} disabled={testing}
+                className="px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50">
+                {testing ? 'Testing...' : 'Test Connection'}
+              </button>
+              <button onClick={() => { setForm({ ...config, password: '' }); setEditing(true); }}
+                className="px-3 py-1.5 text-xs font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700">Edit</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -830,8 +856,16 @@ function CampaignProgress({ campaign, onBack }) {
 
 // ─── Main Page ──────────────────────────────────────────────────────
 
+const NAV_ITEMS = [
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'campaign-new', label: 'New Campaign' },
+  { key: 'compose', label: 'Compose' },
+  { key: 'templates', label: 'Templates' },
+  { key: 'smtp', label: 'Settings' },
+];
+
 export default function PowerEmailPage() {
-  const [view, setView] = useState('dashboard'); // dashboard, smtp, templates, compose, campaign-new, campaign-progress
+  const [view, setView] = useState('dashboard');
   const [smtpConfigs, setSmtpConfigs] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
@@ -854,134 +888,132 @@ export default function PowerEmailPage() {
 
   const goToDashboard = () => { setView('dashboard'); fetchData(); };
 
-  // Dashboard view
-  if (view === 'dashboard') {
-    return (
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Power Email</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Send bulk emails, manage templates, and track campaigns</p>
+  const activeNav = view === 'campaign-progress' ? 'dashboard' : view;
+
+  const renderContent = () => {
+    if (view === 'dashboard') {
+      return (
+        <>
+          {/* Quick actions */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+            <button onClick={() => setView('campaign-new')}
+              className="bg-brand-600 text-white rounded-xl p-4 text-left hover:bg-brand-700 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <p className="text-sm font-semibold">New Campaign</p>
+            </button>
+            <button onClick={() => setView('compose')}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">Compose Email</p>
+            </button>
+            <button onClick={() => setView('smtp')}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">SMTP Settings</p>
+            </button>
+            <button onClick={() => setView('templates')}
+              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+              </svg>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">Templates</p>
+            </button>
           </div>
-        </div>
 
-        {/* Quick actions */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-          <button onClick={() => setView('campaign-new')}
-            className="bg-brand-600 text-white rounded-xl p-4 text-left hover:bg-brand-700 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-            </svg>
-            <p className="text-sm font-semibold">New Campaign</p>
-          </button>
-          <button onClick={() => setView('compose')}
-            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-            </svg>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">Compose Email</p>
-          </button>
-          <button onClick={() => setView('smtp')}
-            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">SMTP Settings</p>
-          </button>
-          <button onClick={() => setView('templates')}
-            className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-            </svg>
-            <p className="text-sm font-semibold text-gray-900 dark:text-white">Templates</p>
-          </button>
-        </div>
+          {/* Campaigns list */}
+          <h3 className="text-lg font-semibold mb-3 dark:text-white">Recent Campaigns</h3>
+          {loading ? (
+            <p className="text-gray-500 text-sm">Loading...</p>
+          ) : campaigns.length === 0 ? (
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-8 text-center">
+              <p className="text-gray-500 dark:text-gray-400 text-sm">No campaigns yet. Create your first campaign to get started.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {campaigns.map((c) => {
+                const statusColors = {
+                  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+                  sending: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+                  completed: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+                  failed: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+                };
+                return (
+                  <button key={c.id} onClick={() => { setSelectedCampaign(c); setView('campaign-progress'); }}
+                    className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white">{c.name}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{c.subject} &middot; {new Date(c.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-gray-600 dark:text-gray-300">{c.sent_count}/{c.total_recipients} sent</span>
+                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${statusColors[c.status] || statusColors.draft}`}>
+                        {c.status}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </>
+      );
+    }
 
-        {/* Campaigns list */}
-        <h3 className="text-lg font-semibold mb-3 dark:text-white">Recent Campaigns</h3>
-        {loading ? (
-          <p className="text-gray-500 text-sm">Loading...</p>
-        ) : campaigns.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-8 text-center">
-            <p className="text-gray-500 dark:text-gray-400 text-sm">No campaigns yet. Create your first campaign to get started.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {campaigns.map((c) => {
-              const statusColors = {
-                draft: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-                sending: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-                completed: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-                failed: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-              };
-              return (
-                <button key={c.id} onClick={() => { setSelectedCampaign(c); setView('campaign-progress'); }}
-                  className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{c.name}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{c.subject} &middot; {new Date(c.created_at).toLocaleDateString()}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm text-gray-600 dark:text-gray-300">{c.sent_count}/{c.total_recipients} sent</span>
-                    <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${statusColors[c.status] || statusColors.draft}`}>
-                      {c.status}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  if (view === 'smtp') {
-    return (
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-        <button onClick={goToDashboard} className="text-sm text-brand-600 dark:text-brand-400 hover:underline mb-4">&larr; Back to Power Email</button>
-        <SmtpSettings />
-      </div>
-    );
-  }
-
-  if (view === 'templates') {
-    return (
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-        <button onClick={goToDashboard} className="text-sm text-brand-600 dark:text-brand-400 hover:underline mb-4">&larr; Back to Power Email</button>
-        <TemplateManager />
-      </div>
-    );
-  }
-
-  if (view === 'compose') {
-    return (
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-        <ComposeEmail smtpConfigs={smtpConfigs} onBack={goToDashboard} />
-      </div>
-    );
-  }
-
-  if (view === 'campaign-new') {
-    return (
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+    if (view === 'smtp') return <SmtpSettings />;
+    if (view === 'templates') return <TemplateManager />;
+    if (view === 'compose') return <ComposeEmail smtpConfigs={smtpConfigs} onBack={goToDashboard} />;
+    if (view === 'campaign-new') {
+      return (
         <CampaignBuilder
           smtpConfigs={smtpConfigs}
           onBack={goToDashboard}
           onCreated={(campaign) => { setSelectedCampaign(campaign); setView('campaign-progress'); }}
         />
-      </div>
-    );
-  }
+      );
+    }
+    if (view === 'campaign-progress' && selectedCampaign) {
+      return <CampaignProgress campaign={selectedCampaign} onBack={goToDashboard} />;
+    }
+    return null;
+  };
 
-  if (view === 'campaign-progress' && selectedCampaign) {
-    return (
-      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
-        <CampaignProgress campaign={selectedCampaign} onBack={goToDashboard} />
+  return (
+    <div className="flex flex-col h-full">
+      {/* Fixed top nav */}
+      <div className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-1 overflow-x-auto py-3">
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white mr-4 whitespace-nowrap">Power Email</h2>
+            {NAV_ITEMS.map((item) => (
+              <button
+                key={item.key}
+                onClick={() => { if (item.key === 'dashboard') goToDashboard(); else setView(item.key); }}
+                className={`px-3 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
+                  activeNav === item.key
+                    ? 'bg-brand-600 text-white'
+                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
-    );
-  }
 
-  return null;
+      {/* Scrollable content */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="max-w-5xl mx-auto">
+          {renderContent()}
+        </div>
+      </div>
+    </div>
+  );
 }

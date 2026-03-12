@@ -20,15 +20,18 @@ async function getSmtpConfig(id, agentId) {
 }
 
 async function saveSmtpConfig(agentId, config) {
-  const { label, host, port, secure, username, password, from_email, from_name, is_default } = config;
-  if (is_default) {
-    await pool.query('UPDATE smtp_configs SET is_default = false WHERE agent_id = $1', [agentId]);
+  const { label, host, port, secure, username, password, from_email, from_name } = config;
+  // Enforce one SMTP config per account — check if one already exists
+  const { rows: existing } = await pool.query('SELECT id FROM smtp_configs WHERE agent_id = $1 LIMIT 1', [agentId]);
+  if (existing.length > 0) {
+    // Update existing instead of creating a new one
+    return updateSmtpConfig(existing[0].id, agentId, config);
   }
   const { rows } = await pool.query(
     `INSERT INTO smtp_configs (agent_id, label, host, port, secure, username, password, from_email, from_name, is_default)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true)
      RETURNING id, agent_id, label, host, port, secure, username, from_email, from_name, is_default, created_at`,
-    [agentId, label || 'Default', host, port || 587, secure || false, username, password, from_email, from_name || '', is_default || false]
+    [agentId, label || 'Default', host, port || 587, secure || false, username, password, from_email, from_name || '']
   );
   return rows[0];
 }
