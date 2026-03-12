@@ -43,3 +43,5 @@ export const getUnreadCount = () => api.get('/email/inbox/unread-count').then((r
 export const deleteEmail = (id) => api.delete(`/email/inbox/${id}`).then((r) => r.data);
 export const replyToEmail = (id, data) => api.post(`/email/inbox/${id}/reply`, data).then((r) => r.data);
 export const forwardEmail = (id, data) => api.post(`/email/inbox/${id}/forward`, data).then((r) => r.data);
+export const getEmailThread = (id) => api.get(`/email/inbox/${id}/thread`).then((r) => r.data);
+export const getListColumns = (listId) => api.get(`/email/list-columns/${listId}`).then((r) => r.data);

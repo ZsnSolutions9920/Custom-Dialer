@@ -537,6 +537,37 @@ async function markEmailRead(id, agentId) {
   await pool.query('UPDATE emails SET is_read = true WHERE id = $1 AND agent_id = $2', [id, agentId]);
 }
 
+async function getEmailThread(id, agentId) {
+  // Find the base email first
+  const base = await getEmailById(id, agentId);
+  if (!base) return [];
+  // Strip Re:/Fwd: prefixes to get the base subject
+  const baseSubject = (base.subject || '').replace(/^(Re:\s*|Fwd:\s*)+/i, '').trim();
+  if (!baseSubject) return [base];
+  // Find all emails in this thread: same base subject, between same parties
+  const { rows } = await pool.query(
+    `SELECT * FROM emails
+     WHERE agent_id = $1
+       AND TRIM(LEADING FROM regexp_replace(subject, '^(Re:\\s*|Fwd:\\s*)+', '', 'i')) = $2
+     ORDER BY email_date ASC`,
+    [agentId, baseSubject]
+  );
+  return rows.length > 0 ? rows : [base];
+}
+
+async function getListColumns(listId) {
+  // Get one entry to inspect metadata keys, plus fixed columns
+  const { rows } = await pool.query(
+    'SELECT metadata FROM phone_list_entries WHERE list_id = $1 AND metadata IS NOT NULL AND metadata::text != $2 LIMIT 1',
+    [listId, '{}']
+  );
+  const fixedCols = ['name', 'email', 'phone'];
+  if (rows.length > 0 && rows[0].metadata && typeof rows[0].metadata === 'object') {
+    return [...fixedCols, ...Object.keys(rows[0].metadata)];
+  }
+  return fixedCols;
+}
+
 async function getUnreadCount(agentId) {
   const { rows } = await pool.query(
     "SELECT COUNT(*)::int AS count FROM emails WHERE agent_id = $1 AND folder = 'inbox' AND is_read = false",
@@ -643,4 +674,6 @@ module.exports = {
   deleteEmail,
   replyToEmail,
   forwardEmail,
+  getEmailThread,
+  getListColumns,
 };

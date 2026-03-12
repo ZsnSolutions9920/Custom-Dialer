@@ -198,7 +198,7 @@ router.post('/send-test', async (req, res) => {
 
 router.post('/send-single', upload.array('attachments', 5), async (req, res) => {
   try {
-    const { smtpConfigId, to, subject, body } = req.body;
+    const { smtpConfigId, to, cc, subject, body } = req.body;
     const smtpConfig = await emailService.getSmtpConfig(parseInt(smtpConfigId), req.agent.id);
     if (!smtpConfig) return res.status(404).json({ error: 'SMTP config not found' });
 
@@ -207,8 +207,8 @@ router.post('/send-single', upload.array('attachments', 5), async (req, res) => 
       content: f.buffer,
     }));
 
-    const info = await emailService.sendEmail(smtpConfig, { to, subject, html: body, attachments });
-    await emailService.saveSentEmail(req.agent.id, { to, subject, html: body, messageId: info.messageId, smtpConfigId: parseInt(smtpConfigId) });
+    const info = await emailService.sendEmail(smtpConfig, { to, cc: cc || undefined, subject, html: body, attachments });
+    await emailService.saveSentEmail(req.agent.id, { to, cc: cc || undefined, subject, html: body, messageId: info.messageId, smtpConfigId: parseInt(smtpConfigId) });
     res.json({ success: true, message: 'Email sent successfully' });
   } catch (err) {
     logger.error(err, 'Send single email failed');
@@ -342,6 +342,26 @@ router.get('/inbox/:id', async (req, res) => {
   } catch (err) {
     logger.error(err, 'Failed to get email');
     res.status(500).json({ error: 'Failed to get email' });
+  }
+});
+
+router.get('/inbox/:id/thread', async (req, res) => {
+  try {
+    const thread = await emailService.getEmailThread(parseInt(req.params.id), req.agent.id);
+    res.json(thread);
+  } catch (err) {
+    logger.error(err, 'Failed to get email thread');
+    res.status(500).json({ error: 'Failed to get email thread' });
+  }
+});
+
+router.get('/list-columns/:listId', async (req, res) => {
+  try {
+    const columns = await emailService.getListColumns(parseInt(req.params.listId));
+    res.json({ columns });
+  } catch (err) {
+    logger.error(err, 'Failed to get list columns');
+    res.status(500).json({ error: 'Failed to get list columns' });
   }
 });
 

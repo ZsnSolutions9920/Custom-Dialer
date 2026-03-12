@@ -310,7 +310,7 @@ function TemplateManager({ onUseTemplate }) {
             <input type="text" value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })}
               className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500" />
           </div>
-          <VariableBar onInsert={(v) => setForm({ ...form, body: form.body + v })} />
+          <VariableBar onInsert={(v) => setForm({ ...form, body: form.body + v })} variables={DEFAULT_TEMPLATE_VARS} />
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Body</label>
             <ReactQuill theme="snow" value={form.body} onChange={(v) => setForm({ ...form, body: v })} modules={QUILL_MODULES} className="bg-white dark:bg-gray-700 rounded-lg [&_.ql-toolbar]:dark:bg-gray-600 [&_.ql-toolbar]:dark:border-gray-500 [&_.ql-container]:dark:border-gray-500 [&_.ql-editor]:dark:text-gray-100 [&_.ql-editor]:min-h-[200px]" />
@@ -359,7 +359,7 @@ function TemplateManager({ onUseTemplate }) {
 }
 
 function VariableBar({ onInsert, variables }) {
-  const vars = variables && variables.length > 0 ? variables : DEFAULT_TEMPLATE_VARS;
+  const vars = variables && variables.length > 0 ? variables : [];
   return (
     <div className="flex flex-wrap gap-1.5">
       <span className="text-xs text-gray-500 dark:text-gray-400 self-center mr-1">Variables:</span>
@@ -453,6 +453,7 @@ function parseSheetFile(file) {
 
 function ComposeEmail({ smtpConfigs, onBack }) {
   const [to, setTo] = useState('');
+  const [cc, setCc] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [smtpId, setSmtpId] = useState('');
@@ -481,6 +482,7 @@ function ComposeEmail({ smtpConfigs, onBack }) {
       const fd = new FormData();
       fd.append('smtpConfigId', smtpId);
       fd.append('to', to);
+      if (cc.trim()) fd.append('cc', cc.trim());
       fd.append('subject', subject);
       fd.append('body', body);
       files.forEach((f) => fd.append('attachments', f));
@@ -534,6 +536,12 @@ function ComposeEmail({ smtpConfigs, onBack }) {
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">CC</label>
+          <input type="text" value={cc} onChange={(e) => setCc(e.target.value)} placeholder="cc@example.com (separate multiple with commas)"
+            className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500" />
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
           <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)}
             className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500" />
@@ -569,8 +577,6 @@ function ComposeEmail({ smtpConfigs, onBack }) {
             </div>
           </div>
         )}
-
-        <VariableBar onInsert={(v) => setBody(body + v)} />
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Body</label>
@@ -621,6 +627,7 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
   const [listId, setListId] = useState('');
   const [statusFilter, setStatusFilter] = useState([]);
   const [recipientCount, setRecipientCount] = useState(null);
+  const [leadSheetColumns, setLeadSheetColumns] = useState([]);
   // Uploaded sheet source
   const [uploadedRows, setUploadedRows] = useState([]);
   const [uploadedHeaders, setUploadedHeaders] = useState([]);
@@ -655,9 +662,12 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
   }, [smtpConfigs, smtpId]);
 
   useEffect(() => {
-    if (source !== 'leads' || !listId) { setRecipientCount(null); return; }
+    if (source !== 'leads' || !listId) { setRecipientCount(null); setLeadSheetColumns([]); return; }
     emailApi.previewRecipients({ listId: parseInt(listId), statusFilter: statusFilter.length > 0 ? statusFilter : undefined })
       .then((r) => setRecipientCount(r.count)).catch(() => setRecipientCount(null));
+    emailApi.getListColumns(parseInt(listId))
+      .then((r) => setLeadSheetColumns(r.columns || []))
+      .catch(() => setLeadSheetColumns([]));
   }, [source, listId, statusFilter]);
 
   const handleFileUpload = async (file) => {
@@ -676,10 +686,12 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
     }
   };
 
-  // Dynamic variables based on source
+  // Dynamic variables based on source — only show when a sheet is selected/uploaded
   const dynamicVars = source === 'upload' && uploadedHeaders.length > 0
     ? uploadedHeaders.map((h) => `{{${h}}}`)
-    : DEFAULT_TEMPLATE_VARS;
+    : source === 'leads' && leadSheetColumns.length > 0
+      ? leadSheetColumns.map((c) => `{{${c}}}`)
+      : [];
 
   const currentRecipientCount = source === 'leads' ? recipientCount : uploadedRows.length;
   const canProceedStep1 = source === 'leads' ? (listId && recipientCount > 0) : (uploadedRows.length > 0);
@@ -895,7 +907,7 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
             </div>
           )}
 
-          <VariableBar onInsert={(v) => setBody(body + v)} variables={dynamicVars} />
+          {dynamicVars.length > 0 && <VariableBar onInsert={(v) => setBody(body + v)} variables={dynamicVars} />}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Body</label>
@@ -1099,6 +1111,59 @@ function CampaignProgress({ campaign, onBack }) {
   );
 }
 
+// ─── Thread Message (collapsible) ────────────────────────────────────
+
+function ThreadMessage({ msg, defaultOpen }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className={`${open ? '' : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}>
+      <div className="px-5 py-3 flex items-start gap-3" onClick={() => !open && setOpen(true)}>
+        <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900 flex-shrink-0 flex items-center justify-center text-brand-700 dark:text-brand-300 font-semibold text-xs mt-0.5">
+          {(msg.from_name || msg.from_address || '?')[0].toUpperCase()}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+              {msg.from_name || msg.from_address}
+              {msg.folder === 'sent' && <span className="ml-1.5 text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1 py-0.5 rounded">Sent</span>}
+            </p>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">{new Date(msg.email_date).toLocaleString()}</span>
+              {open && (
+                <button onClick={(e) => { e.stopPropagation(); setOpen(false); }} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+          {!open && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+              To: {msg.to_address}
+              {msg.body_text ? ` — ${msg.body_text.slice(0, 100)}` : ''}
+            </p>
+          )}
+          {open && (
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              To: {msg.to_address}{msg.cc_address ? ` | CC: ${msg.cc_address}` : ''}
+            </p>
+          )}
+        </div>
+      </div>
+      {open && (
+        <div className="px-5 pb-4 pl-16">
+          {msg.body_html ? (
+            <div className="prose dark:prose-invert prose-sm max-w-none [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: msg.body_html }} />
+          ) : (
+            <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans">{msg.body_text || '(No content)'}</pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Inbox View (3-panel Thunderbird-style) ─────────────────────────
 
 function Inbox() {
@@ -1121,6 +1186,7 @@ function Inbox() {
   // Detail state
   const [selectedEmailId, setSelectedEmailId] = useState(null);
   const [emailDetail, setEmailDetail] = useState(null);
+  const [thread, setThread] = useState([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
   // Reply / Forward state
@@ -1197,8 +1263,12 @@ function Inbox() {
     setDetailLoading(true);
     setMobilePanel('detail');
     try {
-      const detail = await emailApi.getEmailDetail(email.id);
+      const [detail, threadData] = await Promise.all([
+        emailApi.getEmailDetail(email.id),
+        emailApi.getEmailThread(email.id),
+      ]);
       setEmailDetail(detail);
+      setThread(threadData);
       setEmails((prev) => prev.map((e) => e.id === email.id ? { ...e, is_read: true } : e));
     } catch { }
     setDetailLoading(false);
@@ -1249,6 +1319,7 @@ function Inbox() {
       if (selectedEmailId === deleteConfirm) {
         setSelectedEmailId(null);
         setEmailDetail(null);
+        setThread([]);
         setMobilePanel('list');
       }
       setDeleteConfirm(null);
@@ -1265,6 +1336,7 @@ function Inbox() {
     setSelectedFolder(folder);
     setSelectedEmailId(null);
     setEmailDetail(null);
+    setThread([]);
     setReplyMode(null);
     setPage(1);
     setMobilePanel('list');
@@ -1471,7 +1543,7 @@ function Inbox() {
         <>
           {/* Action bar */}
           <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-            <button onClick={() => { setMobilePanel('list'); setSelectedEmailId(null); setEmailDetail(null); setReplyMode(null); }}
+            <button onClick={() => { setMobilePanel('list'); setSelectedEmailId(null); setEmailDetail(null); setThread([]); setReplyMode(null); }}
               className="lg:hidden p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mr-1">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -1497,45 +1569,66 @@ function Inbox() {
             </button>
           </div>
 
-          {/* Email header */}
+          {/* Subject header */}
           <div className="px-5 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800">
-            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">{emailDetail.subject || '(No Subject)'}</h3>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex items-start gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900 flex-shrink-0 flex items-center justify-center text-brand-700 dark:text-brand-300 font-semibold text-sm">
-                  {(emailDetail.from_name || emailDetail.from_address || '?')[0].toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                    {emailDetail.from_name || emailDetail.from_address}
-                    {emailDetail.from_name && <span className="text-gray-500 dark:text-gray-400 font-normal ml-1.5 text-xs">&lt;{emailDetail.from_address}&gt;</span>}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">To: {emailDetail.to_address}</p>
-                  {emailDetail.cc_address && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">CC: {emailDetail.cc_address}</p>
-                  )}
-                </div>
-              </div>
-              <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap flex-shrink-0">
-                {new Date(emailDetail.email_date).toLocaleString()}
-              </span>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">{emailDetail.subject || '(No Subject)'}</h3>
+              {thread.length > 1 && (
+                <span className="text-xs text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">{thread.length} messages</span>
+              )}
             </div>
-            {emailDetail.has_attachments && (
-              <div className="mt-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                </svg>
-                Has attachments
-              </div>
-            )}
           </div>
 
-          {/* Email body */}
-          <div className="flex-1 overflow-y-auto px-5 py-4">
-            {emailDetail.body_html ? (
-              <div className="prose dark:prose-invert prose-sm max-w-none [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: emailDetail.body_html }} />
+          {/* Thread / Body */}
+          <div className="flex-1 overflow-y-auto">
+            {thread.length > 1 ? (
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {thread.map((msg, idx) => {
+                  const isLast = idx === thread.length - 1;
+                  const isSelected = msg.id === emailDetail.id;
+                  return (
+                    <ThreadMessage key={msg.id} msg={msg} defaultOpen={isLast || isSelected} />
+                  );
+                })}
+              </div>
             ) : (
-              <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans">{emailDetail.body_text || '(No content)'}</pre>
+              <>
+                {/* Single email header */}
+                <div className="px-5 pt-3 pb-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900 flex-shrink-0 flex items-center justify-center text-brand-700 dark:text-brand-300 font-semibold text-sm">
+                        {(emailDetail.from_name || emailDetail.from_address || '?')[0].toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                          {emailDetail.from_name || emailDetail.from_address}
+                          {emailDetail.from_name && <span className="text-gray-500 dark:text-gray-400 font-normal ml-1.5 text-xs">&lt;{emailDetail.from_address}&gt;</span>}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">To: {emailDetail.to_address}</p>
+                        {emailDetail.cc_address && <p className="text-xs text-gray-500 dark:text-gray-400 truncate">CC: {emailDetail.cc_address}</p>}
+                      </div>
+                    </div>
+                    <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap flex-shrink-0">{new Date(emailDetail.email_date).toLocaleString()}</span>
+                  </div>
+                  {emailDetail.has_attachments && (
+                    <div className="mt-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                      Has attachments
+                    </div>
+                  )}
+                </div>
+                {/* Single email body */}
+                <div className="px-5 py-4">
+                  {emailDetail.body_html ? (
+                    <div className="prose dark:prose-invert prose-sm max-w-none [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: emailDetail.body_html }} />
+                  ) : (
+                    <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans">{emailDetail.body_text || '(No content)'}</pre>
+                  )}
+                </div>
+              </>
             )}
           </div>
 
