@@ -1099,45 +1099,83 @@ function CampaignProgress({ campaign, onBack }) {
   );
 }
 
-// ─── Inbox View ─────────────────────────────────────────────────────
-
-const FOLDER_TABS = [
-  { key: 'all', label: 'All Mail' },
-  { key: 'inbox', label: 'Inbox' },
-  { key: 'sent', label: 'Sent' },
-];
+// ─── Inbox View (3-panel Thunderbird-style) ─────────────────────────
 
 function Inbox() {
+  // Account & folder state
+  const [smtpConfigs, setSmtpConfigs] = useState([]);
+  const [selectedAccountId, setSelectedAccountId] = useState(null); // null = all accounts
+  const [selectedFolder, setSelectedFolder] = useState('inbox');
+  const [expandedAccounts, setExpandedAccounts] = useState({});
+  const [syncing, setSyncing] = useState(false);
+
+  // Email list state
   const [emails, setEmails] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [folder, setFolder] = useState('all');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [selectedEmail, setSelectedEmail] = useState(null);
-  const [emailDetail, setEmailDetail] = useState(null);
-  const [detailLoading, setDetailLoading] = useState(false);
   const searchTimerRef = useRef(null);
   const limit = 30;
 
-  const fetchEmails = useCallback(async (p = page, s = search) => {
+  // Detail state
+  const [selectedEmailId, setSelectedEmailId] = useState(null);
+  const [emailDetail, setEmailDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // Reply / Forward state
+  const [replyMode, setReplyMode] = useState(null); // 'reply' | 'forward' | null
+  const [replyTo, setReplyTo] = useState('');
+  const [replyCC, setReplyCC] = useState('');
+  const [replyBody, setReplyBody] = useState('');
+  const [sending, setSending] = useState(false);
+
+  // Delete state
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // Mobile panel state
+  const [mobilePanel, setMobilePanel] = useState('sidebar'); // 'sidebar' | 'list' | 'detail'
+
+  // Fetch SMTP configs
+  const fetchConfigs = useCallback(async () => {
+    try {
+      const cfgs = await emailApi.getSmtpConfigs();
+      setSmtpConfigs(cfgs);
+      // Auto-expand all accounts
+      const expanded = {};
+      cfgs.forEach((c) => { expanded[c.id] = true; });
+      setExpandedAccounts(expanded);
+    } catch { }
+  }, []);
+
+  useEffect(() => { fetchConfigs(); }, [fetchConfigs]);
+
+  // Fetch emails
+  const fetchEmails = useCallback(async (p = 1, s = search) => {
     setLoading(true);
     try {
-      const data = await emailApi.getInboxEmails({ folder, page: p, limit, search: s });
+      const data = await emailApi.getInboxEmails({
+        folder: selectedFolder,
+        page: p,
+        limit,
+        search: s,
+        smtpConfigId: selectedAccountId || undefined,
+      });
       setEmails(data.emails);
       setTotal(data.total);
       setPage(data.page);
     } catch { }
     setLoading(false);
-  }, [folder]);
+  }, [selectedFolder, selectedAccountId]);
 
-  useEffect(() => { fetchEmails(1, search); }, [folder]);
+  useEffect(() => { fetchEmails(1, search); }, [selectedFolder, selectedAccountId]);
 
+  // Sync
   const handleSync = async () => {
     setSyncing(true);
     try {
-      await emailApi.syncInbox();
+      await emailApi.syncInbox(selectedAccountId || undefined);
       await fetchEmails(1, search);
     } catch (err) {
       alert(err.response?.data?.error || 'Sync failed. Make sure IMAP is configured in Settings.');
@@ -1145,59 +1183,342 @@ function Inbox() {
     setSyncing(false);
   };
 
+  // Search
   const handleSearch = (val) => {
     setSearch(val);
     if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     searchTimerRef.current = setTimeout(() => fetchEmails(1, val), 300);
   };
 
+  // Open email detail
   const openEmail = async (email) => {
-    setSelectedEmail(email);
+    setSelectedEmailId(email.id);
+    setReplyMode(null);
     setDetailLoading(true);
+    setMobilePanel('detail');
     try {
       const detail = await emailApi.getEmailDetail(email.id);
       setEmailDetail(detail);
-      // Update read status in list
       setEmails((prev) => prev.map((e) => e.id === email.id ? { ...e, is_read: true } : e));
     } catch { }
     setDetailLoading(false);
   };
 
+  // Reply
+  const startReply = () => {
+    if (!emailDetail) return;
+    setReplyMode('reply');
+    setReplyTo(emailDetail.folder === 'sent' ? emailDetail.to_address : emailDetail.from_address);
+    setReplyCC('');
+    setReplyBody('');
+  };
+
+  // Forward
+  const startForward = () => {
+    setReplyMode('forward');
+    setReplyTo('');
+    setReplyCC('');
+    setReplyBody('');
+  };
+
+  // Send reply/forward
+  const handleSendReply = async () => {
+    if (!emailDetail) return;
+    setSending(true);
+    try {
+      if (replyMode === 'reply') {
+        await emailApi.replyToEmail(emailDetail.id, { body: replyBody, cc: replyCC || undefined });
+      } else {
+        await emailApi.forwardEmail(emailDetail.id, { to: replyTo, cc: replyCC || undefined, body: replyBody });
+      }
+      setReplyMode(null);
+      setReplyBody('');
+      fetchEmails(page, search);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to send');
+    }
+    setSending(false);
+  };
+
+  // Delete
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
+    try {
+      await emailApi.deleteEmail(deleteConfirm);
+      if (selectedEmailId === deleteConfirm) {
+        setSelectedEmailId(null);
+        setEmailDetail(null);
+        setMobilePanel('list');
+      }
+      setDeleteConfirm(null);
+      fetchEmails(page, search);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete');
+    }
+    setDeleting(false);
+  };
+
+  // Select account + folder from sidebar
+  const selectAccountFolder = (accountId, folder) => {
+    setSelectedAccountId(accountId);
+    setSelectedFolder(folder);
+    setSelectedEmailId(null);
+    setEmailDetail(null);
+    setReplyMode(null);
+    setPage(1);
+    setMobilePanel('list');
+  };
+
+  const toggleAccount = (id) => {
+    setExpandedAccounts((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
   const totalPages = Math.ceil(total / limit);
 
-  // Email detail view
-  if (selectedEmail && emailDetail) {
-    return (
-      <div>
-        <button onClick={() => { setSelectedEmail(null); setEmailDetail(null); }}
-          className="text-sm text-brand-600 dark:text-brand-400 hover:underline mb-4 flex items-center gap-1">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+  // ─── Left Sidebar (Accounts + Folders) ───
+  const renderSidebar = () => (
+    <div className={`w-full lg:w-56 flex-shrink-0 bg-gray-50 dark:bg-gray-800/50 border-r border-gray-200 dark:border-gray-700 flex flex-col ${mobilePanel !== 'sidebar' ? 'hidden lg:flex' : 'flex'}`}>
+      {/* Sync button */}
+      <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+        <button onClick={handleSync} disabled={syncing}
+          className="w-full px-3 py-2 text-sm font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 flex items-center justify-center gap-1.5">
+          <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          Back to inbox
+          {syncing ? 'Syncing...' : 'Sync All'}
         </button>
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
-          {/* Header */}
-          <div className="p-5 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{emailDetail.subject || '(No Subject)'}</h3>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center text-brand-700 dark:text-brand-300 font-semibold text-sm">
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        {/* All Accounts */}
+        <button
+          onClick={() => selectAccountFolder(null, 'all')}
+          className={`w-full px-3 py-2 text-sm rounded-lg text-left flex items-center gap-2 transition-colors ${
+            selectedAccountId === null && selectedFolder === 'all'
+              ? 'bg-brand-600 text-white'
+              : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+          }`}>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <span className="truncate font-medium">All Accounts</span>
+        </button>
+
+        {/* Per-account sections */}
+        {smtpConfigs.map((cfg) => (
+          <div key={cfg.id}>
+            {/* Account header */}
+            <button
+              onClick={() => toggleAccount(cfg.id)}
+              className="w-full px-3 py-2 text-sm rounded-lg text-left flex items-center gap-2 text-gray-800 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 flex-shrink-0 transition-transform ${expandedAccounts[cfg.id] ? 'rotate-90' : ''}`} fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+              </svg>
+              <span className="truncate font-medium">{cfg.label || cfg.from_email}</span>
+            </button>
+
+            {/* Folder items */}
+            {expandedAccounts[cfg.id] && (
+              <div className="ml-4 space-y-0.5">
+                <button
+                  onClick={() => selectAccountFolder(cfg.id, 'inbox')}
+                  className={`w-full px-3 py-1.5 text-xs rounded-md text-left flex items-center gap-2 transition-colors ${
+                    selectedAccountId === cfg.id && selectedFolder === 'inbox'
+                      ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-semibold'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859M12 3v8.25m0 0l-3-3m3 3l3-3" />
+                  </svg>
+                  Inbox
+                </button>
+                <button
+                  onClick={() => selectAccountFolder(cfg.id, 'sent')}
+                  className={`w-full px-3 py-1.5 text-xs rounded-md text-left flex items-center gap-2 transition-colors ${
+                    selectedAccountId === cfg.id && selectedFolder === 'sent'
+                      ? 'bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 font-semibold'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                  </svg>
+                  Sent
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+
+        {smtpConfigs.length === 0 && (
+          <p className="text-xs text-gray-400 dark:text-gray-500 px-3 py-4 text-center">No email accounts configured. Go to Settings to add one.</p>
+        )}
+      </div>
+    </div>
+  );
+
+  // ─── Middle Panel (Email List) ───
+  const renderEmailList = () => (
+    <div className={`w-full lg:w-80 xl:w-96 flex-shrink-0 border-r border-gray-200 dark:border-gray-700 flex flex-col bg-white dark:bg-gray-900 ${mobilePanel !== 'list' && mobilePanel !== 'sidebar' ? 'hidden lg:flex' : mobilePanel === 'sidebar' ? 'hidden lg:flex' : 'flex'}`}>
+      {/* Search + folder label */}
+      <div className="p-3 border-b border-gray-200 dark:border-gray-700 space-y-2">
+        <div className="flex items-center justify-between">
+          <button onClick={() => setMobilePanel('sidebar')} className="lg:hidden p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate capitalize">
+              {selectedAccountId ? (smtpConfigs.find((c) => c.id === selectedAccountId)?.label || smtpConfigs.find((c) => c.id === selectedAccountId)?.from_email || 'Account') : 'All Accounts'}
+              {' '}<span className="font-normal text-gray-500 dark:text-gray-400">/ {selectedFolder === 'all' ? 'All Mail' : selectedFolder}</span>
+            </h4>
+          </div>
+          <span className="text-xs text-gray-400 dark:text-gray-500">{total}</span>
+        </div>
+        <div className="relative">
+          <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input type="text" value={search} onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Search..."
+            className="w-full pl-8 pr-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md text-xs focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500" />
+        </div>
+      </div>
+
+      {/* Email rows */}
+      <div className="flex-1 overflow-y-auto">
+        {loading ? (
+          <p className="text-gray-500 text-xs py-8 text-center">Loading...</p>
+        ) : emails.length === 0 ? (
+          <div className="px-4 py-12 text-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto text-gray-300 dark:text-gray-600 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            <p className="text-gray-400 dark:text-gray-500 text-xs">No emails found</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100 dark:divide-gray-800">
+            {emails.map((email) => (
+              <button key={email.id} onClick={() => openEmail(email)}
+                className={`w-full px-3 py-2.5 text-left transition-colors ${
+                  selectedEmailId === email.id
+                    ? 'bg-brand-50 dark:bg-brand-900/20 border-l-2 border-brand-600'
+                    : !email.is_read
+                      ? 'bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800 border-l-2 border-transparent'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-800 border-l-2 border-transparent'
+                }`}>
+                <div className="flex items-center justify-between gap-2 mb-0.5">
+                  <p className={`text-xs truncate ${!email.is_read ? 'font-bold text-gray-900 dark:text-white' : 'font-medium text-gray-600 dark:text-gray-400'}`}>
+                    {email.folder === 'sent'
+                      ? `To: ${email.to_address}`
+                      : (email.from_name || email.from_address)}
+                  </p>
+                  <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap flex-shrink-0">
+                    {formatEmailDate(email.email_date)}
+                  </span>
+                </div>
+                <p className={`text-xs truncate ${!email.is_read ? 'text-gray-800 dark:text-gray-200' : 'text-gray-500 dark:text-gray-500'}`}>
+                  {email.subject || '(No Subject)'}
+                </p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  {!email.is_read && <span className="w-1.5 h-1.5 rounded-full bg-brand-600" />}
+                  {email.has_attachments && (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                    </svg>
+                  )}
+                  {email.folder === 'sent' && (
+                    <span className="text-[9px] font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1 py-0.5 rounded">Sent</span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-3 py-2 border-t border-gray-200 dark:border-gray-700">
+          <button onClick={() => fetchEmails(page - 1, search)} disabled={page <= 1}
+            className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-600 dark:text-gray-400">
+            Prev
+          </button>
+          <span className="text-[10px] text-gray-400 dark:text-gray-500">{page}/{totalPages}</span>
+          <button onClick={() => fetchEmails(page + 1, search)} disabled={page >= totalPages}
+            className="px-2 py-1 text-xs border border-gray-200 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-600 dark:text-gray-400">
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  // ─── Right Panel (Email Detail + Reply) ───
+  const renderDetail = () => (
+    <div className={`flex-1 flex flex-col bg-white dark:bg-gray-900 min-w-0 ${mobilePanel !== 'detail' ? 'hidden lg:flex' : 'flex'}`}>
+      {detailLoading ? (
+        <div className="flex-1 flex items-center justify-center"><p className="text-gray-400 text-sm">Loading...</p></div>
+      ) : !emailDetail ? (
+        <div className="flex-1 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 mb-3 text-gray-200 dark:text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <p className="text-sm">Select an email to read</p>
+        </div>
+      ) : (
+        <>
+          {/* Action bar */}
+          <div className="flex items-center gap-1 px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+            <button onClick={() => { setMobilePanel('list'); setSelectedEmailId(null); setEmailDetail(null); setReplyMode(null); }}
+              className="lg:hidden p-1.5 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 mr-1">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <button onClick={startReply} className="px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-1.5 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              Reply
+            </button>
+            <button onClick={startForward} className="px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 flex items-center gap-1.5 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
+              Forward
+            </button>
+            <button onClick={() => setDeleteConfirm(emailDetail.id)} className="px-3 py-1.5 text-xs font-medium border border-red-200 dark:border-red-700 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400 flex items-center gap-1.5 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Delete
+            </button>
+          </div>
+
+          {/* Email header */}
+          <div className="px-5 pt-4 pb-3 border-b border-gray-100 dark:border-gray-800">
+            <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">{emailDetail.subject || '(No Subject)'}</h3>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900 flex-shrink-0 flex items-center justify-center text-brand-700 dark:text-brand-300 font-semibold text-sm">
                   {(emailDetail.from_name || emailDetail.from_address || '?')[0].toUpperCase()}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                     {emailDetail.from_name || emailDetail.from_address}
-                    {emailDetail.from_name && <span className="text-gray-500 dark:text-gray-400 font-normal ml-1.5">&lt;{emailDetail.from_address}&gt;</span>}
+                    {emailDetail.from_name && <span className="text-gray-500 dark:text-gray-400 font-normal ml-1.5 text-xs">&lt;{emailDetail.from_address}&gt;</span>}
                   </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    To: {emailDetail.to_address}
-                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">To: {emailDetail.to_address}</p>
+                  {emailDetail.cc_address && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 truncate">CC: {emailDetail.cc_address}</p>
+                  )}
                 </div>
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+              <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap flex-shrink-0">
                 {new Date(emailDetail.email_date).toLocaleString()}
-              </div>
+              </span>
             </div>
             {emailDetail.has_attachments && (
               <div className="mt-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
@@ -1208,127 +1529,90 @@ function Inbox() {
               </div>
             )}
           </div>
-          {/* Body */}
-          <div className="p-5">
+
+          {/* Email body */}
+          <div className="flex-1 overflow-y-auto px-5 py-4">
             {emailDetail.body_html ? (
-              <div
-                className="prose dark:prose-invert prose-sm max-w-none [&_img]:max-w-full"
-                dangerouslySetInnerHTML={{ __html: emailDetail.body_html }}
-              />
+              <div className="prose dark:prose-invert prose-sm max-w-none [&_img]:max-w-full" dangerouslySetInnerHTML={{ __html: emailDetail.body_html }} />
             ) : (
               <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans">{emailDetail.body_text || '(No content)'}</pre>
             )}
           </div>
-        </div>
-      </div>
-    );
-  }
 
-  // Email list view
-  return (
-    <div>
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
-        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
-          {FOLDER_TABS.map((f) => (
-            <button key={f.key} onClick={() => setFolder(f.key)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${folder === f.key ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
-              {f.label}
-            </button>
-          ))}
-        </div>
-        <div className="relative flex-1 w-full sm:max-w-xs">
-          <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input type="text" value={search} onChange={(e) => handleSearch(e.target.value)}
-            placeholder="Search emails..."
-            className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400" />
-        </div>
-        <button onClick={handleSync} disabled={syncing}
-          className="px-3 py-2 text-sm font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
-          <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          {syncing ? 'Syncing...' : 'Sync'}
-        </button>
-      </div>
+          {/* Reply / Forward composer */}
+          {replyMode && (
+            <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  {replyMode === 'reply' ? 'Reply' : 'Forward'}
+                </h4>
+                <button onClick={() => setReplyMode(null)} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">Cancel</button>
+              </div>
 
-      {/* Email list */}
-      {loading ? (
-        <p className="text-gray-500 text-sm py-8 text-center">Loading...</p>
-      ) : emails.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-12 text-center">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-          </svg>
-          <p className="text-gray-500 dark:text-gray-400 text-sm">No emails found. Click Sync to fetch your emails.</p>
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700">
-          {emails.map((email) => (
-            <button key={email.id} onClick={() => openEmail(email)}
-              className={`w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors ${!email.is_read ? 'bg-brand-50/50 dark:bg-brand-900/10' : ''}`}>
-              {/* Avatar */}
-              <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-semibold mt-0.5 ${
-                email.folder === 'sent'
-                  ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
-                  : 'bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300'
-              }`}>
-                {email.folder === 'sent'
-                  ? (email.to_address?.[0] || '?').toUpperCase()
-                  : (email.from_name?.[0] || email.from_address?.[0] || '?').toUpperCase()}
+              {/* To field */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">To</label>
+                <input type="text" value={replyTo} onChange={(e) => setReplyTo(e.target.value)}
+                  readOnly={replyMode === 'reply'}
+                  placeholder="recipient@example.com"
+                  className={`w-full px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500 ${replyMode === 'reply' ? 'bg-gray-100 dark:bg-gray-600 cursor-default' : ''}`} />
               </div>
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className={`text-sm truncate ${!email.is_read ? 'font-semibold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300'}`}>
-                    {email.folder === 'sent'
-                      ? `To: ${email.to_address}`
-                      : (email.from_name || email.from_address)}
-                  </p>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap flex-shrink-0">
-                    {formatEmailDate(email.email_date)}
-                  </span>
-                </div>
-                <p className={`text-sm truncate ${!email.is_read ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-400'}`}>
-                  {email.subject || '(No Subject)'}
-                </p>
+
+              {/* CC field */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">CC</label>
+                <input type="text" value={replyCC} onChange={(e) => setReplyCC(e.target.value)}
+                  placeholder="cc@example.com (separate multiple with commas)"
+                  className="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-md text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500" />
               </div>
-              {/* Indicators */}
-              <div className="flex items-center gap-1.5 flex-shrink-0 mt-1">
-                {!email.is_read && (
-                  <span className="w-2 h-2 rounded-full bg-brand-600" />
-                )}
-                {email.has_attachments && (
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+
+              {/* Body */}
+              <div className="[&_.ql-container]:max-h-40 [&_.ql-editor]:min-h-[80px]">
+                <ReactQuill theme="snow" value={replyBody} onChange={setReplyBody} modules={QUILL_MODULES} placeholder="Write your message..." />
+              </div>
+
+              <div className="flex items-center gap-2 pt-1">
+                <button onClick={handleSendReply} disabled={sending || (replyMode === 'forward' && !replyTo)}
+                  className="px-4 py-2 text-sm font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 flex items-center gap-1.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                   </svg>
-                )}
-                {email.folder === 'sent' && (
-                  <span className="text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded">Sent</span>
-                )}
+                  {sending ? 'Sending...' : 'Send'}
+                </button>
               </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 mt-4">
-          <button onClick={() => fetchEmails(page - 1, search)} disabled={page <= 1}
-            className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-700 dark:text-gray-300">
-            Prev
-          </button>
-          <span className="text-sm text-gray-500 dark:text-gray-400">Page {page} of {totalPages}</span>
-          <button onClick={() => fetchEmails(page + 1, search)} disabled={page >= totalPages}
-            className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-700 dark:text-gray-300">
-            Next
-          </button>
-        </div>
+            </div>
+          )}
+        </>
       )}
     </div>
+  );
+
+  return (
+    <>
+      <div className="flex h-[calc(100vh-120px)] border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
+        {renderSidebar()}
+        {renderEmailList()}
+        {renderDetail()}
+      </div>
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete Email</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">Are you sure you want to delete this email? This action cannot be undone.</p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeleteConfirm(null)} disabled={deleting}
+                className="px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="px-4 py-2 text-sm font-medium bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50">
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1478,8 +1762,8 @@ export default function PowerEmailPage() {
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <div className="max-w-5xl mx-auto">
+      <div className={`flex-1 ${view === 'inbox' ? 'overflow-hidden p-4 sm:p-4' : 'overflow-y-auto p-4 sm:p-6'}`}>
+        <div className={view === 'inbox' ? 'h-full' : 'max-w-5xl mx-auto'}>
           {renderContent()}
         </div>
       </div>

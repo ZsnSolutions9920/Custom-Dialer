@@ -208,7 +208,7 @@ router.post('/send-single', upload.array('attachments', 5), async (req, res) => 
     }));
 
     const info = await emailService.sendEmail(smtpConfig, { to, subject, html: body, attachments });
-    await emailService.saveSentEmail(req.agent.id, { to, subject, html: body, messageId: info.messageId });
+    await emailService.saveSentEmail(req.agent.id, { to, subject, html: body, messageId: info.messageId, smtpConfigId: parseInt(smtpConfigId) });
     res.json({ success: true, message: 'Email sent successfully' });
   } catch (err) {
     logger.error(err, 'Send single email failed');
@@ -294,8 +294,9 @@ router.get('/campaigns/:id/logs', async (req, res) => {
 
 router.post('/inbox/sync', async (req, res) => {
   try {
-    await emailService.fetchInboxEmails(req.agent.id);
-    res.json({ success: true });
+    const { smtpConfigId } = req.body;
+    const result = await emailService.fetchInboxEmails(req.agent.id, smtpConfigId ? parseInt(smtpConfigId) : undefined);
+    res.json({ success: true, ...result });
   } catch (err) {
     logger.error(err, 'Inbox sync failed');
     res.status(500).json({ error: err.message || 'Failed to sync inbox' });
@@ -304,12 +305,13 @@ router.post('/inbox/sync', async (req, res) => {
 
 router.get('/inbox', async (req, res) => {
   try {
-    const { folder, page, limit, search } = req.query;
+    const { folder, page, limit, search, smtpConfigId } = req.query;
     const result = await emailService.getEmails(req.agent.id, {
       folder: folder || 'all',
       page: parseInt(page) || 1,
       limit: parseInt(limit) || 30,
       search: search || '',
+      smtpConfigId: smtpConfigId ? parseInt(smtpConfigId) : undefined,
     });
     res.json(result);
   } catch (err) {
@@ -332,7 +334,6 @@ router.get('/inbox/:id', async (req, res) => {
   try {
     const email = await emailService.getEmailById(parseInt(req.params.id), req.agent.id);
     if (!email) return res.status(404).json({ error: 'Email not found' });
-    // Mark as read
     if (!email.is_read) {
       await emailService.markEmailRead(email.id, req.agent.id);
       email.is_read = true;
@@ -341,6 +342,40 @@ router.get('/inbox/:id', async (req, res) => {
   } catch (err) {
     logger.error(err, 'Failed to get email');
     res.status(500).json({ error: 'Failed to get email' });
+  }
+});
+
+router.delete('/inbox/:id', async (req, res) => {
+  try {
+    const ok = await emailService.deleteEmail(parseInt(req.params.id), req.agent.id);
+    if (!ok) return res.status(404).json({ error: 'Email not found' });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error(err, 'Failed to delete email');
+    res.status(500).json({ error: 'Failed to delete email' });
+  }
+});
+
+router.post('/inbox/:id/reply', async (req, res) => {
+  try {
+    const { body, cc } = req.body;
+    const result = await emailService.replyToEmail(req.agent.id, { emailId: parseInt(req.params.id), body, cc });
+    res.json(result);
+  } catch (err) {
+    logger.error(err, 'Reply failed');
+    res.status(500).json({ error: err.message || 'Failed to send reply' });
+  }
+});
+
+router.post('/inbox/:id/forward', async (req, res) => {
+  try {
+    const { to, cc, body } = req.body;
+    if (!to) return res.status(400).json({ error: 'Recipient (to) is required' });
+    const result = await emailService.forwardEmail(req.agent.id, { emailId: parseInt(req.params.id), to, cc, body });
+    res.json(result);
+  } catch (err) {
+    logger.error(err, 'Forward failed');
+    res.status(500).json({ error: err.message || 'Failed to forward email' });
   }
 });
 

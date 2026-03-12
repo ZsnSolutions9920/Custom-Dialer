@@ -35,8 +35,11 @@ export const sendSingleEmail = (formData) =>
   }).then((r) => r.data);
 
 // Inbox
-export const syncInbox = () => api.post('/email/inbox/sync').then((r) => r.data);
-export const getInboxEmails = ({ folder, page, limit, search } = {}) =>
-  api.get('/email/inbox', { params: { folder, page, limit, search } }).then((r) => r.data);
+export const syncInbox = (smtpConfigId) => api.post('/email/inbox/sync', smtpConfigId ? { smtpConfigId } : {}).then((r) => r.data);
+export const getInboxEmails = ({ folder, page, limit, search, smtpConfigId } = {}) =>
+  api.get('/email/inbox', { params: { folder, page, limit, search, smtpConfigId } }).then((r) => r.data);
 export const getEmailDetail = (id) => api.get(`/email/inbox/${id}`).then((r) => r.data);
 export const getUnreadCount = () => api.get('/email/inbox/unread-count').then((r) => r.data);
+export const deleteEmail = (id) => api.delete(`/email/inbox/${id}`).then((r) => r.data);
+export const replyToEmail = (id, data) => api.post(`/email/inbox/${id}/reply`, data).then((r) => r.data);
+export const forwardEmail = (id, data) => api.post(`/email/inbox/${id}/forward`, data).then((r) => r.data);

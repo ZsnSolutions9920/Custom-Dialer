@@ -274,7 +274,7 @@ function resolveUploadedVariables(template, data) {
 
 // ─── Send Single Email ──────────────────────────────────────────────
 
-async function sendEmail(smtpConfig, { to, subject, html, attachments }) {
+async function sendEmail(smtpConfig, { to, cc, subject, html, attachments, headers }) {
   const transporter = nodemailer.createTransport({
     host: smtpConfig.host,
     port: smtpConfig.port,
@@ -287,9 +287,11 @@ async function sendEmail(smtpConfig, { to, subject, html, attachments }) {
     subject,
     html,
   };
+  if (cc) mailOptions.cc = cc;
   if (attachments && attachments.length > 0) {
     mailOptions.attachments = attachments;
   }
+  if (headers) mailOptions.headers = headers;
   return transporter.sendMail(mailOptions);
 }
 
@@ -367,142 +369,136 @@ async function runCampaign(campaignId, agentId, io) {
 
 // ─── Inbox: Fetch emails via IMAP ───────────────────────────────────
 
-async function fetchInboxEmails(agentId) {
+async function fetchInboxEmails(agentId, targetConfigId) {
   const configs = await getSmtpConfigs(agentId);
-  const config = configs[0];
-  if (!config) throw new Error('No email account configured');
-  if (!config.imap_host) throw new Error('IMAP not configured. Update your email settings with IMAP host.');
+  const imapConfigs = targetConfigId
+    ? configs.filter((c) => c.id === targetConfigId && c.imap_host)
+    : configs.filter((c) => c.imap_host);
 
-  const fullConfig = await getSmtpConfig(config.id, agentId);
+  if (imapConfigs.length === 0) throw new Error('No IMAP-configured email accounts found. Update your email settings with IMAP host.');
 
-  const client = new ImapFlow({
-    host: config.imap_host,
-    port: config.imap_port || 993,
-    secure: config.imap_secure !== false,
-    auth: { user: fullConfig.username, pass: fullConfig.password },
-    logger: false,
-  });
+  const results = { synced: 0, errors: [] };
 
-  await client.connect();
-
-  try {
-    // Get the highest UID we already have for this agent's inbox
-    const { rows: lastRow } = await pool.query(
-      "SELECT MAX(uid) AS max_uid FROM emails WHERE agent_id = $1 AND folder = 'inbox'",
-      [agentId]
-    );
-    const lastUid = lastRow[0]?.max_uid || 0;
-
-    const lock = await client.getMailboxLock('INBOX');
+  for (const config of imapConfigs) {
     try {
-      // Fetch messages newer than what we have, up to 50
-      const range = lastUid > 0 ? `${lastUid + 1}:*` : '1:*';
-      let count = 0;
-      const maxFetch = 50;
+      const fullConfig = await getSmtpConfig(config.id, agentId);
+      const client = new ImapFlow({
+        host: config.imap_host,
+        port: config.imap_port || 993,
+        secure: config.imap_secure !== false,
+        auth: { user: fullConfig.username, pass: fullConfig.password },
+        logger: false,
+      });
 
-      for await (const message of client.fetch(range, {
-        uid: true,
-        envelope: true,
-        source: true,
-        flags: true,
-      })) {
-        if (count >= maxFetch) break;
-        // Skip if we already have this UID
-        if (message.uid <= lastUid) continue;
+      await client.connect();
 
-        const parsed = await simpleParser(message.source);
-
-        const fromAddr = parsed.from?.value?.[0]?.address || '';
-        const fromName = parsed.from?.value?.[0]?.name || '';
-        const toAddr = parsed.to?.value?.[0]?.address || config.from_email;
-        const msgId = parsed.messageId || null;
-        const isRead = message.flags?.has('\\Seen') || false;
-        const hasAttach = parsed.attachments?.length > 0 || false;
-
-        // Check for duplicate message_id
-        if (msgId) {
-          const { rows: dup } = await pool.query(
-            'SELECT id FROM emails WHERE agent_id = $1 AND message_id = $2 LIMIT 1',
-            [agentId, msgId]
-          );
-          if (dup.length > 0) continue;
-        }
-
-        await pool.query(
-          `INSERT INTO emails (agent_id, message_id, folder, from_address, from_name, to_address, subject, body_html, body_text, is_read, has_attachments, email_date, uid)
-           VALUES ($1, $2, 'inbox', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-          [agentId, msgId, fromAddr, fromName, toAddr, parsed.subject || '(No Subject)', parsed.html || null, parsed.text || null, isRead, hasAttach, parsed.date || new Date(), message.uid]
+      try {
+        // ── Inbox ──
+        const { rows: lastRow } = await pool.query(
+          "SELECT MAX(uid) AS max_uid FROM emails WHERE agent_id = $1 AND folder = 'inbox' AND smtp_config_id = $2",
+          [agentId, config.id]
         );
-        count++;
-      }
-    } finally {
-      lock.release();
-    }
+        const lastUid = lastRow[0]?.max_uid || 0;
 
-    // Also fetch sent folder
-    try {
-      const sentLock = await client.getMailboxLock('[Gmail]/Sent Mail').catch(() =>
-        client.getMailboxLock('Sent').catch(() =>
-          client.getMailboxLock('INBOX.Sent')
-        )
-      );
-
-      if (sentLock) {
+        const lock = await client.getMailboxLock('INBOX');
         try {
-          const { rows: lastSentRow } = await pool.query(
-            "SELECT MAX(uid) AS max_uid FROM emails WHERE agent_id = $1 AND folder = 'sent'",
-            [agentId]
-          );
-          const lastSentUid = lastSentRow[0]?.max_uid || 0;
-          const sentRange = lastSentUid > 0 ? `${lastSentUid + 1}:*` : '1:*';
-          let sentCount = 0;
-
-          for await (const message of client.fetch(sentRange, {
-            uid: true,
-            envelope: true,
-            source: true,
-          })) {
-            if (sentCount >= 50) break;
-            if (message.uid <= lastSentUid) continue;
-
+          const range = lastUid > 0 ? `${lastUid + 1}:*` : '1:*';
+          let count = 0;
+          for await (const message of client.fetch(range, { uid: true, envelope: true, source: true, flags: true })) {
+            if (count >= 50) break;
+            if (message.uid <= lastUid) continue;
             const parsed = await simpleParser(message.source);
-            const toAddr = parsed.to?.value?.[0]?.address || '';
+            const fromAddr = parsed.from?.value?.[0]?.address || '';
+            const fromName = parsed.from?.value?.[0]?.name || '';
+            const toAddr = parsed.to?.value?.[0]?.address || config.from_email;
+            const ccAddr = parsed.cc?.value?.map((c) => c.address).join(', ') || null;
             const msgId = parsed.messageId || null;
+            const isRead = message.flags?.has('\\Seen') || false;
+            const hasAttach = parsed.attachments?.length > 0 || false;
+            const inReplyTo = parsed.inReplyTo || null;
 
             if (msgId) {
-              const { rows: dup } = await pool.query(
-                'SELECT id FROM emails WHERE agent_id = $1 AND message_id = $2 LIMIT 1',
-                [agentId, msgId]
-              );
+              const { rows: dup } = await pool.query('SELECT id FROM emails WHERE agent_id = $1 AND message_id = $2 LIMIT 1', [agentId, msgId]);
               if (dup.length > 0) continue;
             }
 
             await pool.query(
-              `INSERT INTO emails (agent_id, message_id, folder, from_address, from_name, to_address, subject, body_html, body_text, is_read, has_attachments, email_date, uid)
-               VALUES ($1, $2, 'sent', $3, $4, $5, $6, $7, $8, true, $9, $10, $11)`,
-              [agentId, msgId, config.from_email, config.from_name || '', toAddr, parsed.subject || '(No Subject)', parsed.html || null, parsed.text || null, parsed.attachments?.length > 0 || false, parsed.date || new Date(), message.uid]
+              `INSERT INTO emails (agent_id, smtp_config_id, message_id, folder, from_address, from_name, to_address, cc_address, subject, body_html, body_text, is_read, has_attachments, email_date, uid, in_reply_to)
+               VALUES ($1, $2, $3, 'inbox', $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+              [agentId, config.id, msgId, fromAddr, fromName, toAddr, ccAddr, parsed.subject || '(No Subject)', parsed.html || null, parsed.text || null, isRead, hasAttach, parsed.date || new Date(), message.uid, inReplyTo]
             );
-            sentCount++;
+            count++;
           }
+          results.synced += count;
         } finally {
-          sentLock.release();
+          lock.release();
         }
+
+        // ── Sent folder ──
+        try {
+          const sentLock = await client.getMailboxLock('[Gmail]/Sent Mail').catch(() =>
+            client.getMailboxLock('Sent').catch(() => client.getMailboxLock('INBOX.Sent'))
+          );
+          if (sentLock) {
+            try {
+              const { rows: lastSentRow } = await pool.query(
+                "SELECT MAX(uid) AS max_uid FROM emails WHERE agent_id = $1 AND folder = 'sent' AND smtp_config_id = $2",
+                [agentId, config.id]
+              );
+              const lastSentUid = lastSentRow[0]?.max_uid || 0;
+              const sentRange = lastSentUid > 0 ? `${lastSentUid + 1}:*` : '1:*';
+              let sentCount = 0;
+              for await (const message of client.fetch(sentRange, { uid: true, envelope: true, source: true })) {
+                if (sentCount >= 50) break;
+                if (message.uid <= lastSentUid) continue;
+                const parsed = await simpleParser(message.source);
+                const toAddr = parsed.to?.value?.[0]?.address || '';
+                const ccAddr = parsed.cc?.value?.map((c) => c.address).join(', ') || null;
+                const msgId = parsed.messageId || null;
+                if (msgId) {
+                  const { rows: dup } = await pool.query('SELECT id FROM emails WHERE agent_id = $1 AND message_id = $2 LIMIT 1', [agentId, msgId]);
+                  if (dup.length > 0) continue;
+                }
+                await pool.query(
+                  `INSERT INTO emails (agent_id, smtp_config_id, message_id, folder, from_address, from_name, to_address, cc_address, subject, body_html, body_text, is_read, has_attachments, email_date, uid)
+                   VALUES ($1, $2, $3, 'sent', $4, $5, $6, $7, $8, $9, $10, true, $11, $12, $13)`,
+                  [agentId, config.id, msgId, config.from_email, config.from_name || '', toAddr, ccAddr, parsed.subject || '(No Subject)', parsed.html || null, parsed.text || null, parsed.attachments?.length > 0 || false, parsed.date || new Date(), message.uid]
+                );
+                sentCount++;
+              }
+              results.synced += sentCount;
+            } finally {
+              sentLock.release();
+            }
+          }
+        } catch { /* sent folder not found */ }
+      } finally {
+        await client.logout();
       }
-    } catch {
-      // Sent folder not found or not accessible — skip silently
+    } catch (err) {
+      results.errors.push({ configId: config.id, label: config.label || config.from_email, error: err.message });
     }
-  } finally {
-    await client.logout();
   }
+
+  if (results.synced === 0 && results.errors.length > 0) {
+    throw new Error(`Sync failed: ${results.errors.map((e) => `${e.label}: ${e.error}`).join('; ')}`);
+  }
+  return results;
 }
 
-async function getEmails(agentId, { folder = 'all', page = 1, limit = 30, search = '' }) {
+async function getEmails(agentId, { folder = 'all', page = 1, limit = 30, search = '', smtpConfigId }) {
   const offset = (page - 1) * limit;
   const params = [agentId];
   let folderClause = '';
   if (folder !== 'all') {
     params.push(folder);
     folderClause = ` AND folder = $${params.length}`;
+  }
+
+  let configClause = '';
+  if (smtpConfigId) {
+    params.push(smtpConfigId);
+    configClause = ` AND smtp_config_id = $${params.length}`;
   }
 
   let searchClause = '';
@@ -513,16 +509,16 @@ async function getEmails(agentId, { folder = 'all', page = 1, limit = 30, search
   }
 
   const { rows } = await pool.query(
-    `SELECT id, message_id, folder, from_address, from_name, to_address, subject, is_read, has_attachments, email_date, created_at
+    `SELECT id, message_id, folder, from_address, from_name, to_address, cc_address, subject, is_read, has_attachments, email_date, smtp_config_id, created_at
      FROM emails
-     WHERE agent_id = $1 ${folderClause} ${searchClause}
+     WHERE agent_id = $1 ${folderClause} ${configClause} ${searchClause}
      ORDER BY email_date DESC
      LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, limit, offset]
   );
 
   const { rows: countRows } = await pool.query(
-    `SELECT COUNT(*)::int AS count FROM emails WHERE agent_id = $1 ${folderClause} ${searchClause}`,
+    `SELECT COUNT(*)::int AS count FROM emails WHERE agent_id = $1 ${folderClause} ${configClause} ${searchClause}`,
     params
   );
 
@@ -550,14 +546,65 @@ async function getUnreadCount(agentId) {
 }
 
 // Also save sent emails locally when sending via compose/campaign
-async function saveSentEmail(agentId, { to, subject, html, messageId }) {
-  const configs = await getSmtpConfigs(agentId);
-  const config = configs[0];
+async function saveSentEmail(agentId, { to, cc, subject, html, messageId, smtpConfigId, inReplyTo }) {
+  const config = smtpConfigId
+    ? await getSmtpConfig(smtpConfigId, agentId)
+    : (await getSmtpConfigs(agentId))[0];
   await pool.query(
-    `INSERT INTO emails (agent_id, message_id, folder, from_address, from_name, to_address, subject, body_html, is_read, email_date)
-     VALUES ($1, $2, 'sent', $3, $4, $5, $6, $7, true, NOW())`,
-    [agentId, messageId || null, config?.from_email || '', config?.from_name || '', to, subject, html]
+    `INSERT INTO emails (agent_id, smtp_config_id, message_id, folder, from_address, from_name, to_address, cc_address, subject, body_html, is_read, email_date, in_reply_to)
+     VALUES ($1, $2, $3, 'sent', $4, $5, $6, $7, $8, $9, true, NOW(), $10)`,
+    [agentId, config?.id || null, messageId || null, config?.from_email || '', config?.from_name || '', to, cc || null, subject, html, inReplyTo || null]
   );
+}
+
+// ─── Delete Email ────────────────────────────────────────────────────
+
+async function deleteEmail(id, agentId) {
+  const { rowCount } = await pool.query('DELETE FROM emails WHERE id = $1 AND agent_id = $2', [id, agentId]);
+  return rowCount > 0;
+}
+
+// ─── Reply / Forward ─────────────────────────────────────────────────
+
+async function replyToEmail(agentId, { emailId, body, cc }) {
+  const original = await getEmailById(emailId, agentId);
+  if (!original) throw new Error('Email not found');
+
+  const smtpConfig = original.smtp_config_id
+    ? await getSmtpConfig(original.smtp_config_id, agentId)
+    : (await getSmtpConfigs(agentId))[0];
+  if (!smtpConfig) throw new Error('No SMTP config found for this email account');
+
+  const replySubject = original.subject?.startsWith('Re: ') ? original.subject : `Re: ${original.subject || ''}`;
+  const replyTo = original.folder === 'sent' ? original.to_address : original.from_address;
+
+  const headers = {};
+  if (original.message_id) {
+    headers['In-Reply-To'] = original.message_id;
+    headers['References'] = original.message_id;
+  }
+
+  const info = await sendEmail(smtpConfig, { to: replyTo, cc, subject: replySubject, html: body, headers });
+  await saveSentEmail(agentId, { to: replyTo, cc, subject: replySubject, html: body, messageId: info.messageId, smtpConfigId: smtpConfig.id, inReplyTo: original.message_id });
+  return { success: true, message: 'Reply sent' };
+}
+
+async function forwardEmail(agentId, { emailId, to, cc, body }) {
+  const original = await getEmailById(emailId, agentId);
+  if (!original) throw new Error('Email not found');
+
+  const smtpConfig = original.smtp_config_id
+    ? await getSmtpConfig(original.smtp_config_id, agentId)
+    : (await getSmtpConfigs(agentId))[0];
+  if (!smtpConfig) throw new Error('No SMTP config found for this email account');
+
+  const fwdSubject = original.subject?.startsWith('Fwd: ') ? original.subject : `Fwd: ${original.subject || ''}`;
+  const separator = `<br/><hr/><p><strong>---------- Forwarded message ----------</strong></p><p><strong>From:</strong> ${original.from_name || ''} &lt;${original.from_address}&gt;<br/><strong>Date:</strong> ${new Date(original.email_date).toLocaleString()}<br/><strong>Subject:</strong> ${original.subject || ''}<br/><strong>To:</strong> ${original.to_address}</p>`;
+  const fullBody = `${body || ''}${separator}${original.body_html || original.body_text || ''}`;
+
+  const info = await sendEmail(smtpConfig, { to, cc, subject: fwdSubject, html: fullBody });
+  await saveSentEmail(agentId, { to, cc, subject: fwdSubject, html: fullBody, messageId: info.messageId, smtpConfigId: smtpConfig.id });
+  return { success: true, message: 'Email forwarded' };
 }
 
 module.exports = {
@@ -593,4 +640,7 @@ module.exports = {
   markEmailRead,
   getUnreadCount,
   saveSentEmail,
+  deleteEmail,
+  replyToEmail,
+  forwardEmail,
 };
