@@ -207,7 +207,8 @@ router.post('/send-single', upload.array('attachments', 5), async (req, res) => 
       content: f.buffer,
     }));
 
-    await emailService.sendEmail(smtpConfig, { to, subject, html: body, attachments });
+    const info = await emailService.sendEmail(smtpConfig, { to, subject, html: body, attachments });
+    await emailService.saveSentEmail(req.agent.id, { to, subject, html: body, messageId: info.messageId });
     res.json({ success: true, message: 'Email sent successfully' });
   } catch (err) {
     logger.error(err, 'Send single email failed');
@@ -229,7 +230,17 @@ router.get('/campaigns', async (req, res) => {
 
 router.post('/campaigns', async (req, res) => {
   try {
-    const campaign = await emailService.createCampaign(req.agent.id, req.body);
+    const { recipients, ...campaignData } = req.body;
+    const campaign = await emailService.createCampaign(req.agent.id, campaignData);
+
+    // If uploaded sheet recipients are provided, store them
+    if (recipients && recipients.length > 0) {
+      await emailService.addCampaignRecipients(campaign.id, recipients);
+      // Update total count
+      await emailService.updateCampaignStatus(campaign.id, 'draft', { total_recipients: recipients.length });
+      campaign.total_recipients = recipients.length;
+    }
+
     res.status(201).json(campaign);
   } catch (err) {
     logger.error(err, 'Failed to create campaign');
@@ -276,6 +287,60 @@ router.get('/campaigns/:id/logs', async (req, res) => {
   } catch (err) {
     logger.error(err, 'Failed to get campaign logs');
     res.status(500).json({ error: 'Failed to get campaign logs' });
+  }
+});
+
+// ─── Inbox ──────────────────────────────────────────────────────────
+
+router.post('/inbox/sync', async (req, res) => {
+  try {
+    await emailService.fetchInboxEmails(req.agent.id);
+    res.json({ success: true });
+  } catch (err) {
+    logger.error(err, 'Inbox sync failed');
+    res.status(500).json({ error: err.message || 'Failed to sync inbox' });
+  }
+});
+
+router.get('/inbox', async (req, res) => {
+  try {
+    const { folder, page, limit, search } = req.query;
+    const result = await emailService.getEmails(req.agent.id, {
+      folder: folder || 'all',
+      page: parseInt(page) || 1,
+      limit: parseInt(limit) || 30,
+      search: search || '',
+    });
+    res.json(result);
+  } catch (err) {
+    logger.error(err, 'Failed to get emails');
+    res.status(500).json({ error: 'Failed to get emails' });
+  }
+});
+
+router.get('/inbox/unread-count', async (req, res) => {
+  try {
+    const count = await emailService.getUnreadCount(req.agent.id);
+    res.json({ count });
+  } catch (err) {
+    logger.error(err, 'Failed to get unread count');
+    res.status(500).json({ error: 'Failed to get unread count' });
+  }
+});
+
+router.get('/inbox/:id', async (req, res) => {
+  try {
+    const email = await emailService.getEmailById(parseInt(req.params.id), req.agent.id);
+    if (!email) return res.status(404).json({ error: 'Email not found' });
+    // Mark as read
+    if (!email.is_read) {
+      await emailService.markEmailRead(email.id, req.agent.id);
+      email.is_read = true;
+    }
+    res.json(email);
+  } catch (err) {
+    logger.error(err, 'Failed to get email');
+    res.status(500).json({ error: 'Failed to get email' });
   }
 });
 

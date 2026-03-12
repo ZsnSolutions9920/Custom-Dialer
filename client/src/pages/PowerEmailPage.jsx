@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
+import { read, utils } from 'xlsx';
 import { useSocket } from '../context/SocketContext';
 import { getPhoneLists } from '../api/phoneLists';
 import * as emailApi from '../api/email';
@@ -14,7 +15,7 @@ const STATUSES = [
   { value: 'do_not_contact', label: 'Do Not Contact' },
 ];
 
-const TEMPLATE_VARS = [
+const DEFAULT_TEMPLATE_VARS = [
   '{{name}}', '{{email}}', '{{phone}}', '{{trademark}}',
   '{{serial number}}', '{{status date}}',
 ];
@@ -36,7 +37,7 @@ function SmtpSettings() {
   const [config, setConfig] = useState(null); // null = loading, false = no config, object = existing config
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true });
+  const [form, setForm] = useState({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true, imap_host: '', imap_port: 993, imap_secure: true });
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -59,7 +60,7 @@ function SmtpSettings() {
   // Auto-enter edit mode if no config exists
   useEffect(() => {
     if (config === false && !editing) {
-      setForm({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true });
+      setForm({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true, imap_host: '', imap_port: 993, imap_secure: true });
       setEditing(true);
     }
   }, [config, editing]);
@@ -102,10 +103,11 @@ function SmtpSettings() {
       <div className="max-w-lg mx-auto">
         <h3 className="text-lg font-semibold mb-4 dark:text-white">{isNew ? 'Setup SMTP Account' : 'Edit SMTP Account'}</h3>
         <div className="space-y-3">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Outgoing (SMTP)</p>
           {[
             { key: 'label', label: 'Label', placeholder: 'e.g. Work Gmail' },
             { key: 'host', label: 'SMTP Host', placeholder: 'smtp.gmail.com' },
-            { key: 'port', label: 'Port', type: 'number' },
+            { key: 'port', label: 'SMTP Port', type: 'number' },
             { key: 'username', label: 'Username / Email' },
             { key: 'password', label: 'Password', type: 'password', placeholder: !isNew ? '(leave blank to keep current)' : '' },
             { key: 'from_email', label: 'From Email' },
@@ -124,8 +126,31 @@ function SmtpSettings() {
           ))}
           <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
             <input type="checkbox" checked={form.secure} onChange={(e) => setForm({ ...form, secure: e.target.checked })} className="rounded" />
-            Use TLS/SSL
+            Use TLS/SSL (SMTP)
           </label>
+
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-1" />
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Incoming (IMAP)</p>
+          {[
+            { key: 'imap_host', label: 'IMAP Host', placeholder: 'imap.gmail.com' },
+            { key: 'imap_port', label: 'IMAP Port', type: 'number' },
+          ].map(({ key, label, type, placeholder }) => (
+            <div key={key}>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
+              <input
+                type={type || 'text'}
+                value={form[key] || ''}
+                onChange={(e) => setForm({ ...form, [key]: type === 'number' ? parseInt(e.target.value) || 0 : e.target.value })}
+                placeholder={placeholder}
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              />
+            </div>
+          ))}
+          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input type="checkbox" checked={form.imap_secure !== false} onChange={(e) => setForm({ ...form, imap_secure: e.target.checked })} className="rounded" />
+            Use TLS/SSL (IMAP)
+          </label>
+          <p className="text-xs text-gray-400 dark:text-gray-500">IMAP uses the same username/password as SMTP. Configure IMAP to sync your inbox.</p>
           <div className="flex gap-2 pt-2">
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50">
               {saving ? 'Saving...' : 'Save'}
@@ -151,11 +176,11 @@ function SmtpSettings() {
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-gray-500 dark:text-gray-400">Host</p>
+              <p className="text-gray-500 dark:text-gray-400">SMTP Host</p>
               <p className="font-medium text-gray-900 dark:text-white">{config.host}:{config.port}</p>
             </div>
             <div>
-              <p className="text-gray-500 dark:text-gray-400">Security</p>
+              <p className="text-gray-500 dark:text-gray-400">SMTP Security</p>
               <p className="font-medium text-gray-900 dark:text-white">{config.secure ? 'TLS/SSL' : 'None'}</p>
             </div>
             <div>
@@ -165,6 +190,14 @@ function SmtpSettings() {
             <div>
               <p className="text-gray-500 dark:text-gray-400">From</p>
               <p className="font-medium text-gray-900 dark:text-white">{config.from_name ? `${config.from_name} <${config.from_email}>` : config.from_email}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400">IMAP Host</p>
+              <p className="font-medium text-gray-900 dark:text-white">{config.imap_host ? `${config.imap_host}:${config.imap_port}` : <span className="text-yellow-600 dark:text-yellow-400">Not configured</span>}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 dark:text-gray-400">IMAP Security</p>
+              <p className="font-medium text-gray-900 dark:text-white">{config.imap_host ? (config.imap_secure ? 'TLS/SSL' : 'None') : '—'}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
@@ -285,11 +318,12 @@ function TemplateManager({ onUseTemplate }) {
   );
 }
 
-function VariableBar({ onInsert }) {
+function VariableBar({ onInsert, variables }) {
+  const vars = variables && variables.length > 0 ? variables : DEFAULT_TEMPLATE_VARS;
   return (
     <div className="flex flex-wrap gap-1.5">
       <span className="text-xs text-gray-500 dark:text-gray-400 self-center mr-1">Variables:</span>
-      {TEMPLATE_VARS.map((v) => (
+      {vars.map((v) => (
         <button key={v} onClick={() => onInsert(v)} type="button"
           className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded hover:bg-gray-200 dark:hover:bg-gray-600 font-mono">
           {v}
@@ -297,6 +331,84 @@ function VariableBar({ onInsert }) {
       ))}
     </div>
   );
+}
+
+/* ── Sheet parsing helpers for email campaigns ── */
+
+function detectDelimiter(line) {
+  const tabCount = (line.match(/\t/g) || []).length;
+  const commaCount = (line.match(/,/g) || []).length;
+  return tabCount > commaCount ? '\t' : ',';
+}
+
+function parseLine(line, delimiter) {
+  if (delimiter === '\t') return line.split('\t').map((f) => f.trim());
+  const fields = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (inQuotes) {
+      if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+      else if (ch === '"') { inQuotes = false; }
+      else { current += ch; }
+    } else if (ch === '"') { inQuotes = true; }
+    else if (ch === ',') { fields.push(current.trim()); current = ''; }
+    else { current += ch; }
+  }
+  fields.push(current.trim());
+  return fields;
+}
+
+function parseSheetFile(file) {
+  return new Promise((resolve, reject) => {
+    const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onload = (e) => {
+      try {
+        let headers, dataRows;
+        if (isExcel) {
+          const wb = read(new Uint8Array(e.target.result), { type: 'array' });
+          const sheet = wb.Sheets[wb.SheetNames[0]];
+          const rows = utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+          if (rows.length < 2) return reject(new Error('Sheet has less than 2 rows'));
+          headers = rows[0].map((h) => String(h).trim());
+          dataRows = rows.slice(1);
+        } else {
+          const text = e.target.result;
+          const lines = text.split(/\r?\n/).filter((l) => l.trim());
+          if (lines.length < 2) return reject(new Error('File has less than 2 rows'));
+          const delim = detectDelimiter(lines[0]);
+          headers = parseLine(lines[0], delim).map((h) => h.replace(/^["']|["']$/g, '').trim());
+          dataRows = lines.slice(1).map((line) => parseLine(line, delim).map((p) => p.replace(/^["']|["']$/g, '')));
+        }
+
+        // Detect email column (any column name containing "email")
+        const emailIdx = headers.findIndex((h) => h.toLowerCase().includes('email'));
+        if (emailIdx === -1) return reject(new Error('No email column found. Make sure one column header contains the word "email".'));
+
+        // Build rows as objects using original header names
+        const rows = [];
+        for (const row of dataRows) {
+          const email = String(row[emailIdx] || '').trim();
+          if (!email || !email.includes('@')) continue;
+          const data = {};
+          headers.forEach((h, i) => {
+            const val = row[i];
+            if (val != null && String(val).trim()) data[h] = String(val).trim();
+          });
+          rows.push({ email, data });
+        }
+
+        resolve({ headers, emailColumn: headers[emailIdx], rows });
+      } catch (err) {
+        reject(err);
+      }
+    };
+    if (isExcel) reader.readAsArrayBuffer(file);
+    else reader.readAsText(file);
+  });
 }
 
 function ComposeEmail({ smtpConfigs, onBack }) {
@@ -462,10 +574,20 @@ function ComposeEmail({ smtpConfigs, onBack }) {
 
 function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
   const [step, setStep] = useState(1);
+  // Source selection
+  const [source, setSource] = useState('leads'); // 'leads' or 'upload'
+  // Lead sheet source
   const [lists, setLists] = useState([]);
   const [listId, setListId] = useState('');
   const [statusFilter, setStatusFilter] = useState([]);
   const [recipientCount, setRecipientCount] = useState(null);
+  // Uploaded sheet source
+  const [uploadedRows, setUploadedRows] = useState([]);
+  const [uploadedHeaders, setUploadedHeaders] = useState([]);
+  const [uploadedEmailCol, setUploadedEmailCol] = useState('');
+  const [uploadFileName, setUploadFileName] = useState('');
+  const [uploadError, setUploadError] = useState('');
+  // Common
   const [name, setName] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -493,10 +615,34 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
   }, [smtpConfigs, smtpId]);
 
   useEffect(() => {
-    if (!listId) { setRecipientCount(null); return; }
+    if (source !== 'leads' || !listId) { setRecipientCount(null); return; }
     emailApi.previewRecipients({ listId: parseInt(listId), statusFilter: statusFilter.length > 0 ? statusFilter : undefined })
       .then((r) => setRecipientCount(r.count)).catch(() => setRecipientCount(null));
-  }, [listId, statusFilter]);
+  }, [source, listId, statusFilter]);
+
+  const handleFileUpload = async (file) => {
+    setUploadError('');
+    setUploadedRows([]);
+    setUploadedHeaders([]);
+    setUploadFileName('');
+    try {
+      const { headers, emailColumn, rows } = await parseSheetFile(file);
+      setUploadedHeaders(headers);
+      setUploadedEmailCol(emailColumn);
+      setUploadedRows(rows);
+      setUploadFileName(file.name);
+    } catch (err) {
+      setUploadError(err.message || 'Failed to parse file');
+    }
+  };
+
+  // Dynamic variables based on source
+  const dynamicVars = source === 'upload' && uploadedHeaders.length > 0
+    ? uploadedHeaders.map((h) => `{{${h}}}`)
+    : DEFAULT_TEMPLATE_VARS;
+
+  const currentRecipientCount = source === 'leads' ? recipientCount : uploadedRows.length;
+  const canProceedStep1 = source === 'leads' ? (listId && recipientCount > 0) : (uploadedRows.length > 0);
 
   const handleAiGenerate = async () => {
     if (!aiPrompt) return;
@@ -526,18 +672,25 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
   };
 
   const handleCreate = async () => {
-    if (!name || !subject || !smtpId || !listId) return alert('Please fill all required fields');
+    if (!name || !subject || !smtpId) return alert('Please fill all required fields');
+    if (source === 'leads' && !listId) return alert('Please select a lead sheet');
+    if (source === 'upload' && uploadedRows.length === 0) return alert('Please upload a sheet');
     setCreating(true);
     try {
-      const campaign = await emailApi.createCampaign({
+      const payload = {
         name,
         subject,
         body,
         smtp_config_id: parseInt(smtpId),
         delay_ms: delayMs,
-        source_list_id: parseInt(listId),
-        status_filter: statusFilter.length > 0 ? statusFilter : null,
-      });
+      };
+      if (source === 'leads') {
+        payload.source_list_id = parseInt(listId);
+        payload.status_filter = statusFilter.length > 0 ? statusFilter : null;
+      } else {
+        payload.recipients = uploadedRows;
+      }
+      const campaign = await emailApi.createCampaign(payload);
       onCreated(campaign);
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to create campaign');
@@ -571,31 +724,83 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
       {step === 1 && (
         <div className="space-y-4">
           <h4 className="font-medium dark:text-white">Step 1: Select Recipients</h4>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Lead Sheet</label>
-            <select value={listId} onChange={(e) => setListId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
-              <option value="">Choose a list...</option>
-              {lists.map((l) => <option key={l.id} value={l.id}>{l.name} ({l.total_count} leads)</option>)}
-            </select>
+
+          {/* Source toggle */}
+          <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5 w-fit">
+            <button onClick={() => setSource('leads')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${source === 'leads' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+              From Leads
+            </button>
+            <button onClick={() => setSource('upload')}
+              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${source === 'upload' ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400'}`}>
+              Upload Sheet
+            </button>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter by Status (optional)</label>
-            <div className="flex flex-wrap gap-2">
-              {STATUSES.map((s) => (
-                <button key={s.value} onClick={() => toggleStatus(s.value)}
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${statusFilter.includes(s.value) ? 'bg-brand-600 text-white border-brand-600' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          {recipientCount !== null && (
+
+          {source === 'leads' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Select Lead Sheet</label>
+                <select value={listId} onChange={(e) => setListId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                  <option value="">Choose a list...</option>
+                  {lists.map((l) => <option key={l.id} value={l.id}>{l.name} ({l.total_count} leads)</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Filter by Status (optional)</label>
+                <div className="flex flex-wrap gap-2">
+                  {STATUSES.map((s) => (
+                    <button key={s.value} onClick={() => toggleStatus(s.value)}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-lg border ${statusFilter.includes(s.value) ? 'bg-brand-600 text-white border-brand-600' : 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'}`}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {source === 'upload' && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Upload Sheet (.xlsx, .csv, .txt)</label>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv,.tsv,.txt"
+                  onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0])}
+                  className="w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-brand-50 file:text-brand-700 dark:file:bg-brand-900/30 dark:file:text-brand-300 hover:file:bg-brand-100"
+                />
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">The sheet must have a column with "email" in its header. All column names become template variables.</p>
+              </div>
+              {uploadError && (
+                <p className="text-sm text-red-600 dark:text-red-400">{uploadError}</p>
+              )}
+              {uploadFileName && (
+                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3 space-y-1.5">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-medium">{uploadFileName}</span> — {uploadedRows.length} recipients found
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Email column: <span className="font-medium text-brand-600 dark:text-brand-400">{uploadedEmailCol}</span>
+                  </p>
+                  <div className="flex flex-wrap gap-1">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Columns:</span>
+                    {uploadedHeaders.map((h) => (
+                      <span key={h} className="px-1.5 py-0.5 text-xs bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded font-mono">{h}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {currentRecipientCount !== null && currentRecipientCount > 0 && (
             <p className="text-sm font-medium text-brand-600 dark:text-brand-400">
-              {recipientCount} recipient{recipientCount !== 1 ? 's' : ''} with email addresses found
+              {currentRecipientCount} recipient{currentRecipientCount !== 1 ? 's' : ''} {source === 'leads' ? 'with email addresses found' : 'ready'}
             </p>
           )}
-          <button onClick={() => setStep(2)} disabled={!listId || recipientCount === 0}
+          <button onClick={() => setStep(2)} disabled={!canProceedStep1}
             className="px-6 py-2.5 bg-brand-600 text-white text-sm font-semibold rounded-lg hover:bg-brand-700 disabled:opacity-50">
             Next: Compose Email
           </button>
@@ -650,7 +855,7 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
             </div>
           )}
 
-          <VariableBar onInsert={(v) => setBody(body + v)} />
+          <VariableBar onInsert={(v) => setBody(body + v)} variables={dynamicVars} />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Body</label>
@@ -692,9 +897,9 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
           <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-2">
             <p className="text-sm font-medium text-gray-900 dark:text-white">Campaign Summary</p>
             <p className="text-sm text-gray-600 dark:text-gray-300">Name: {name}</p>
-            <p className="text-sm text-gray-600 dark:text-gray-300">Recipients: {recipientCount}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Recipients: {currentRecipientCount}</p>
             <p className="text-sm text-gray-600 dark:text-gray-300">Subject: {subject}</p>
-            <p className="text-sm text-gray-600 dark:text-gray-300">Estimated time: ~{Math.ceil((recipientCount || 0) * delayMs / 60000)} min</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Estimated time: ~{Math.ceil((currentRecipientCount || 0) * delayMs / 60000)} min</p>
           </div>
 
           {/* Test send */}
@@ -854,132 +1059,356 @@ function CampaignProgress({ campaign, onBack }) {
   );
 }
 
+// ─── Inbox View ─────────────────────────────────────────────────────
+
+const FOLDER_TABS = [
+  { key: 'all', label: 'All Mail' },
+  { key: 'inbox', label: 'Inbox' },
+  { key: 'sent', label: 'Sent' },
+];
+
+function Inbox() {
+  const [emails, setEmails] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [folder, setFolder] = useState('all');
+  const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [selectedEmail, setSelectedEmail] = useState(null);
+  const [emailDetail, setEmailDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const searchTimerRef = useRef(null);
+  const limit = 30;
+
+  const fetchEmails = useCallback(async (p = page, s = search) => {
+    setLoading(true);
+    try {
+      const data = await emailApi.getInboxEmails({ folder, page: p, limit, search: s });
+      setEmails(data.emails);
+      setTotal(data.total);
+      setPage(data.page);
+    } catch { }
+    setLoading(false);
+  }, [folder]);
+
+  useEffect(() => { fetchEmails(1, search); }, [folder]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      await emailApi.syncInbox();
+      await fetchEmails(1, search);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Sync failed. Make sure IMAP is configured in Settings.');
+    }
+    setSyncing(false);
+  };
+
+  const handleSearch = (val) => {
+    setSearch(val);
+    if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    searchTimerRef.current = setTimeout(() => fetchEmails(1, val), 300);
+  };
+
+  const openEmail = async (email) => {
+    setSelectedEmail(email);
+    setDetailLoading(true);
+    try {
+      const detail = await emailApi.getEmailDetail(email.id);
+      setEmailDetail(detail);
+      // Update read status in list
+      setEmails((prev) => prev.map((e) => e.id === email.id ? { ...e, is_read: true } : e));
+    } catch { }
+    setDetailLoading(false);
+  };
+
+  const totalPages = Math.ceil(total / limit);
+
+  // Email detail view
+  if (selectedEmail && emailDetail) {
+    return (
+      <div>
+        <button onClick={() => { setSelectedEmail(null); setEmailDetail(null); }}
+          className="text-sm text-brand-600 dark:text-brand-400 hover:underline mb-4 flex items-center gap-1">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to inbox
+        </button>
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="p-5 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">{emailDetail.subject || '(No Subject)'}</h3>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-brand-100 dark:bg-brand-900 flex items-center justify-center text-brand-700 dark:text-brand-300 font-semibold text-sm">
+                  {(emailDetail.from_name || emailDetail.from_address || '?')[0].toUpperCase()}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
+                    {emailDetail.from_name || emailDetail.from_address}
+                    {emailDetail.from_name && <span className="text-gray-500 dark:text-gray-400 font-normal ml-1.5">&lt;{emailDetail.from_address}&gt;</span>}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    To: {emailDetail.to_address}
+                  </p>
+                </div>
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                {new Date(emailDetail.email_date).toLocaleString()}
+              </div>
+            </div>
+            {emailDetail.has_attachments && (
+              <div className="mt-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+                Has attachments
+              </div>
+            )}
+          </div>
+          {/* Body */}
+          <div className="p-5">
+            {emailDetail.body_html ? (
+              <div
+                className="prose dark:prose-invert prose-sm max-w-none [&_img]:max-w-full"
+                dangerouslySetInnerHTML={{ __html: emailDetail.body_html }}
+              />
+            ) : (
+              <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap font-sans">{emailDetail.body_text || '(No content)'}</pre>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Email list view
+  return (
+    <div>
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
+        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-0.5">
+          {FOLDER_TABS.map((f) => (
+            <button key={f.key} onClick={() => setFolder(f.key)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${folder === f.key ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}>
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <div className="relative flex-1 w-full sm:max-w-xs">
+          <svg xmlns="http://www.w3.org/2000/svg" className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input type="text" value={search} onChange={(e) => handleSearch(e.target.value)}
+            placeholder="Search emails..."
+            className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400" />
+        </div>
+        <button onClick={handleSync} disabled={syncing}
+          className="px-3 py-2 text-sm font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700 disabled:opacity-50 flex items-center gap-1.5 whitespace-nowrap">
+          <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 ${syncing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          {syncing ? 'Syncing...' : 'Sync'}
+        </button>
+      </div>
+
+      {/* Email list */}
+      {loading ? (
+        <p className="text-gray-500 text-sm py-8 text-center">Loading...</p>
+      ) : emails.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-12 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No emails found. Click Sync to fetch your emails.</p>
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden divide-y divide-gray-100 dark:divide-gray-700">
+          {emails.map((email) => (
+            <button key={email.id} onClick={() => openEmail(email)}
+              className={`w-full px-4 py-3 flex items-start gap-3 text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors ${!email.is_read ? 'bg-brand-50/50 dark:bg-brand-900/10' : ''}`}>
+              {/* Avatar */}
+              <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-semibold mt-0.5 ${
+                email.folder === 'sent'
+                  ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300'
+                  : 'bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300'
+              }`}>
+                {email.folder === 'sent'
+                  ? (email.to_address?.[0] || '?').toUpperCase()
+                  : (email.from_name?.[0] || email.from_address?.[0] || '?').toUpperCase()}
+              </div>
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <p className={`text-sm truncate ${!email.is_read ? 'font-semibold text-gray-900 dark:text-white' : 'font-medium text-gray-700 dark:text-gray-300'}`}>
+                    {email.folder === 'sent'
+                      ? `To: ${email.to_address}`
+                      : (email.from_name || email.from_address)}
+                  </p>
+                  <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap flex-shrink-0">
+                    {formatEmailDate(email.email_date)}
+                  </span>
+                </div>
+                <p className={`text-sm truncate ${!email.is_read ? 'text-gray-800 dark:text-gray-200' : 'text-gray-600 dark:text-gray-400'}`}>
+                  {email.subject || '(No Subject)'}
+                </p>
+              </div>
+              {/* Indicators */}
+              <div className="flex items-center gap-1.5 flex-shrink-0 mt-1">
+                {!email.is_read && (
+                  <span className="w-2 h-2 rounded-full bg-brand-600" />
+                )}
+                {email.has_attachments && (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                )}
+                {email.folder === 'sent' && (
+                  <span className="text-[10px] font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1.5 py-0.5 rounded">Sent</span>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2 mt-4">
+          <button onClick={() => fetchEmails(page - 1, search)} disabled={page <= 1}
+            className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-700 dark:text-gray-300">
+            Prev
+          </button>
+          <span className="text-sm text-gray-500 dark:text-gray-400">Page {page} of {totalPages}</span>
+          <button onClick={() => fetchEmails(page + 1, search)} disabled={page >= totalPages}
+            className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-700 dark:text-gray-300">
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatEmailDate(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  if (isToday) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const yesterday = new Date(now);
+  yesterday.setDate(yesterday.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return 'Yesterday';
+  if (now.getFullYear() === d.getFullYear()) return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// ─── Campaigns View ─────────────────────────────────────────────────
+
+function CampaignsList({ onSelectCampaign, onNewCampaign }) {
+  const [campaigns, setCampaigns] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    emailApi.getCampaigns().then(setCampaigns).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold dark:text-white">Campaigns</h3>
+        <button onClick={onNewCampaign}
+          className="px-3 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700">+ New Campaign</button>
+      </div>
+      {loading ? (
+        <p className="text-gray-500 text-sm">Loading...</p>
+      ) : campaigns.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-8 text-center">
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No campaigns yet. Create your first campaign to get started.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {campaigns.map((c) => {
+            const statusColors = {
+              draft: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+              sending: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+              completed: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
+              failed: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+            };
+            return (
+              <button key={c.id} onClick={() => onSelectCampaign(c)}
+                className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">{c.name}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{c.subject} &middot; {new Date(c.created_at).toLocaleDateString()}</p>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600 dark:text-gray-300">{c.sent_count}/{c.total_recipients} sent</span>
+                  <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${statusColors[c.status] || statusColors.draft}`}>
+                    {c.status}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
-  { key: 'dashboard', label: 'Dashboard' },
-  { key: 'campaign-new', label: 'New Campaign' },
+  { key: 'inbox', label: 'Inbox' },
+  { key: 'campaigns', label: 'Campaigns' },
   { key: 'compose', label: 'Compose' },
   { key: 'templates', label: 'Templates' },
   { key: 'smtp', label: 'Settings' },
 ];
 
 export default function PowerEmailPage() {
-  const [view, setView] = useState('dashboard');
+  const [view, setView] = useState('inbox');
   const [smtpConfigs, setSmtpConfigs] = useState([]);
-  const [campaigns, setCampaigns] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
-  const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const fetchConfigs = useCallback(async () => {
     try {
-      const [configs, camps] = await Promise.all([
-        emailApi.getSmtpConfigs(),
-        emailApi.getCampaigns(),
-      ]);
-      setSmtpConfigs(configs);
-      setCampaigns(camps);
+      setSmtpConfigs(await emailApi.getSmtpConfigs());
     } catch { }
-    setLoading(false);
   }, []);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { fetchConfigs(); }, [fetchConfigs]);
 
-  const goToDashboard = () => { setView('dashboard'); fetchData(); };
+  const goToInbox = () => { setView('inbox'); };
 
-  const activeNav = view === 'campaign-progress' ? 'dashboard' : view;
+  const activeNav = view === 'campaign-new' || view === 'campaign-progress' ? 'campaigns' : view;
 
   const renderContent = () => {
-    if (view === 'dashboard') {
-      return (
-        <>
-          {/* Quick actions */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-            <button onClick={() => setView('campaign-new')}
-              className="bg-brand-600 text-white rounded-xl p-4 text-left hover:bg-brand-700 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <p className="text-sm font-semibold">New Campaign</p>
-            </button>
-            <button onClick={() => setView('compose')}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">Compose Email</p>
-            </button>
-            <button onClick={() => setView('smtp')}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">SMTP Settings</p>
-            </button>
-            <button onClick={() => setView('templates')}
-              className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mb-2 text-gray-600 dark:text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-              </svg>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">Templates</p>
-            </button>
-          </div>
-
-          {/* Campaigns list */}
-          <h3 className="text-lg font-semibold mb-3 dark:text-white">Recent Campaigns</h3>
-          {loading ? (
-            <p className="text-gray-500 text-sm">Loading...</p>
-          ) : campaigns.length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-8 text-center">
-              <p className="text-gray-500 dark:text-gray-400 text-sm">No campaigns yet. Create your first campaign to get started.</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {campaigns.map((c) => {
-                const statusColors = {
-                  draft: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
-                  sending: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
-                  completed: 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300',
-                  failed: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
-                };
-                return (
-                  <button key={c.id} onClick={() => { setSelectedCampaign(c); setView('campaign-progress'); }}
-                    className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
-                    <div>
-                      <p className="font-medium text-gray-900 dark:text-white">{c.name}</p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{c.subject} &middot; {new Date(c.created_at).toLocaleDateString()}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm text-gray-600 dark:text-gray-300">{c.sent_count}/{c.total_recipients} sent</span>
-                      <span className={`px-2.5 py-1 text-xs font-semibold rounded-full ${statusColors[c.status] || statusColors.draft}`}>
-                        {c.status}
-                      </span>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </>
-      );
-    }
-
+    if (view === 'inbox') return <Inbox />;
     if (view === 'smtp') return <SmtpSettings />;
     if (view === 'templates') return <TemplateManager />;
-    if (view === 'compose') return <ComposeEmail smtpConfigs={smtpConfigs} onBack={goToDashboard} />;
+    if (view === 'compose') return <ComposeEmail smtpConfigs={smtpConfigs} onBack={goToInbox} />;
+    if (view === 'campaigns') {
+      return (
+        <CampaignsList
+          onSelectCampaign={(c) => { setSelectedCampaign(c); setView('campaign-progress'); }}
+          onNewCampaign={() => setView('campaign-new')}
+        />
+      );
+    }
     if (view === 'campaign-new') {
       return (
         <CampaignBuilder
           smtpConfigs={smtpConfigs}
-          onBack={goToDashboard}
+          onBack={() => setView('campaigns')}
           onCreated={(campaign) => { setSelectedCampaign(campaign); setView('campaign-progress'); }}
         />
       );
     }
     if (view === 'campaign-progress' && selectedCampaign) {
-      return <CampaignProgress campaign={selectedCampaign} onBack={goToDashboard} />;
+      return <CampaignProgress campaign={selectedCampaign} onBack={() => setView('campaigns')} />;
     }
     return null;
   };
@@ -994,7 +1423,7 @@ export default function PowerEmailPage() {
             {NAV_ITEMS.map((item) => (
               <button
                 key={item.key}
-                onClick={() => { if (item.key === 'dashboard') goToDashboard(); else setView(item.key); }}
+                onClick={() => setView(item.key)}
                 className={`px-3 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
                   activeNav === item.key
                     ? 'bg-brand-600 text-white'

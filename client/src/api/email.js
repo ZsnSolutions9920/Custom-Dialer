@@ -33,3 +33,10 @@ export const sendSingleEmail = (formData) =>
   api.post('/email/send-single', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }).then((r) => r.data);
+
+// Inbox
+export const syncInbox = () => api.post('/email/inbox/sync').then((r) => r.data);
+export const getInboxEmails = ({ folder, page, limit, search } = {}) =>
+  api.get('/email/inbox', { params: { folder, page, limit, search } }).then((r) => r.data);
+export const getEmailDetail = (id) => api.get(`/email/inbox/${id}`).then((r) => r.data);
+export const getUnreadCount = () => api.get('/email/inbox/unread-count').then((r) => r.data);

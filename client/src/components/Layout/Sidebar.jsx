@@ -65,8 +65,12 @@ export default function Sidebar({ open, onClose, darkMode, onToggleDarkMode }) {
           My Dashboard
         </NavLink>
         <NavLink to="/phone-lists" className={linkClass} onClick={onClose}>
-          Leads
+          Power Dialer
         </NavLink>
+          <NavLink to="/power-email" className={linkClass} onClick={onClose}>
+          Power Email
+        </NavLink>
+
          <NavLink to="/calendar" className={linkClass} onClick={onClose}>
           Calender
         </NavLink> 
@@ -78,9 +82,6 @@ export default function Sidebar({ open, onClose, darkMode, onToggleDarkMode }) {
         </NavLink>
         <NavLink to="/history" className={linkClass} onClick={onClose}>
           Call History
-        </NavLink>
-        <NavLink to="/power-email" className={linkClass} onClick={onClose}>
-          Power Email
         </NavLink>
 
       </nav>
