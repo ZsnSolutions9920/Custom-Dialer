@@ -67,9 +67,16 @@ async function getListEntries({ listId, page = 1, limit = 20, search = '' }) {
 
   if (search.trim()) {
     const pattern = `%${search.trim()}%`;
+    const digitsOnly = search.trim().replace(/\D/g, '');
     params.push(pattern);
     const idx = params.length;
-    searchClause = `AND (name ILIKE $${idx} OR metadata::text ILIKE $${idx})`;
+    if (digitsOnly.length > 0) {
+      params.push(`%${digitsOnly}%`);
+      const digitsIdx = params.length;
+      searchClause = `AND (name ILIKE $${idx} OR metadata::text ILIKE $${idx} OR phone_number ILIKE $${idx} OR regexp_replace(phone_number, '[^0-9]', '', 'g') LIKE $${digitsIdx})`;
+    } else {
+      searchClause = `AND (name ILIKE $${idx} OR metadata::text ILIKE $${idx} OR phone_number ILIKE $${idx})`;
+    }
   }
 
   const { rows } = await pool.query(

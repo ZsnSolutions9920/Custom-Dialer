@@ -487,7 +487,7 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
             type="text"
             value={search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            placeholder="Search by name, trademark, or serial #"
+            placeholder="Search by name, phone, trademark, or serial #"
             className="w-full pl-9 pr-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400"
           />
         </div>
@@ -500,10 +500,11 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
       ) : (
         <>
           <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
-            <table className="w-full min-w-[800px] text-sm">
+            <table className="w-full min-w-[950px] text-sm">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 text-left text-gray-500 dark:text-gray-400">
                   <th className="px-4 py-3 font-medium">Client Name</th>
+                  <th className="px-4 py-3 font-medium">Phone Number</th>
                   <th className="px-4 py-3 font-medium">Trademark</th>
                   <th className="px-4 py-3 font-medium">Serial Number</th>
                   <th className="px-4 py-3 font-medium">Status Date</th>
@@ -526,6 +527,9 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
                         >
                           {entry.name || entry.phone_number}
                         </button>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-nowrap">
+                        {entry.phone_number || '—'}
                       </td>
                       <td className="px-4 py-3 text-gray-700 dark:text-gray-300 max-w-[200px] truncate" title={trademark || ''}>
                         {trademark || '—'}
