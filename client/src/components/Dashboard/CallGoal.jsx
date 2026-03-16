@@ -26,6 +26,8 @@ export default function CallGoal() {
   }, []);
 
   const pct = goal > 0 ? Math.min((count / goal) * 100, 100) : 0;
+  const circumference = 2 * Math.PI * 40;
+  const strokeDashoffset = circumference - (pct / 100) * circumference;
 
   const handleSaveGoal = () => {
     const val = parseInt(goalInput, 10);
@@ -39,7 +41,10 @@ export default function CallGoal() {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">Today's Calls</h3>
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">Today's Goal</h3>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Daily call target</p>
+        </div>
         {!editing ? (
           <button
             onClick={() => { setGoalInput(goal.toString()); setEditing(true); }}
@@ -70,26 +75,42 @@ export default function CallGoal() {
       </div>
 
       {loading ? (
-        <div className="animate-pulse space-y-3">
-          <div className="h-7 bg-gray-100 dark:bg-gray-700 rounded w-20" />
-          <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded" />
+        <div className="animate-pulse flex items-center justify-center py-6">
+          <div className="w-24 h-24 rounded-full bg-gray-100 dark:bg-gray-700" />
         </div>
       ) : (
-        <>
-          <div className="flex items-baseline gap-1.5 mb-3">
-            <span className="text-2xl font-semibold text-gray-800 dark:text-white">{count}</span>
-            <span className="text-base text-gray-400 dark:text-gray-500">/ {goal}</span>
+        <div className="flex flex-col items-center">
+          {/* Circular progress */}
+          <div className="relative w-28 h-28">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+              <circle
+                cx="50" cy="50" r="40"
+                fill="none"
+                stroke="currentColor"
+                className="text-gray-100 dark:text-gray-700"
+                strokeWidth="6"
+              />
+              <circle
+                cx="50" cy="50" r="40"
+                fill="none"
+                stroke="currentColor"
+                className="text-brand-500 dark:text-brand-400"
+                strokeWidth="6"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={strokeDashoffset}
+                style={{ transition: 'stroke-dashoffset 0.7s ease-out' }}
+              />
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-xl font-semibold text-gray-800 dark:text-white tabular-nums">{count}</span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">of {goal}</span>
+            </div>
           </div>
-          <div className="w-full h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className="h-full rounded-full bg-brand-500 transition-all duration-700"
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-3 text-center">
             {pct >= 100 ? 'Goal reached!' : `${Math.round(pct)}% of daily goal`}
           </p>
-        </>
+        </div>
       )}
     </div>
   );

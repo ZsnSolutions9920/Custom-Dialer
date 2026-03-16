@@ -32,7 +32,8 @@ export default function AppLayout() {
 
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />
 
-      <div className="flex-1 flex flex-col min-w-0">
+      {/* Main content - offset by sidebar width on desktop */}
+      <div className="flex-1 flex flex-col min-w-0 md:ml-[220px]">
         {/* Mobile header */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <button

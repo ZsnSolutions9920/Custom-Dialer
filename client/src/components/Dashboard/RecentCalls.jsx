@@ -46,7 +46,10 @@ export default function RecentCalls({ onCall, agentId }) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">Recent Calls</h3>
+        <div>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">Recent Calls</h3>
+          <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">Latest activity</p>
+        </div>
       </div>
 
       {loading ? (
