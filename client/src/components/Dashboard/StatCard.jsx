@@ -1,16 +1,16 @@
-export default function StatCard({ icon, label, value, subtitle, trend }) {
+export default function StatCard({ icon, label, value, subtitle }) {
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 hover:shadow-card-hover transition-shadow duration-200">
-      <div className="flex items-center gap-3 mb-3">
-        <div className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/20 text-brand-600 dark:text-brand-400 flex items-center justify-center shrink-0">
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-card border border-gray-100/80 dark:border-gray-700 p-6 hover:shadow-card-hover transition-all duration-300 group">
+      <div className="flex items-start justify-between">
+        <div className="space-y-3">
+          <p className="text-sm font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide">{label}</p>
+          <p className="text-3xl font-bold text-gray-800 dark:text-white tracking-tight">{value}</p>
+          {subtitle && <p className="text-xs text-gray-400 dark:text-gray-500">{subtitle}</p>}
+        </div>
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 text-white flex items-center justify-center shadow-md shadow-brand-500/20 group-hover:scale-105 transition-transform duration-300">
           {icon}
         </div>
-        <p className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider leading-tight">{label}</p>
       </div>
-      <p className="text-2xl font-semibold text-gray-800 dark:text-white tracking-tight">{value}</p>
-      {subtitle && (
-        <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1.5">{subtitle}</p>
-      )}
     </div>
   );
 }
