@@ -53,7 +53,7 @@ function injectTracking(html, trackingToken) {
   return result;
 }
 
-// Record an open event
+// Record an open event (notify only on first open per email)
 async function recordOpen(trackingToken, ip, userAgent) {
   const { rows } = await pool.query(
     'SELECT id, agent_id, to_address FROM emails WHERE tracking_token = $1',
@@ -62,6 +62,13 @@ async function recordOpen(trackingToken, ip, userAgent) {
   if (rows.length === 0) return null;
 
   const email = rows[0];
+
+  // Check if this email was already opened before
+  const { rows: existing } = await pool.query(
+    "SELECT id FROM email_tracking_events WHERE email_id = $1 AND event_type = 'open' LIMIT 1",
+    [email.id]
+  );
+  const isFirstOpen = existing.length === 0;
 
   // Update email counters
   await pool.query(
@@ -91,10 +98,13 @@ async function recordOpen(trackingToken, ip, userAgent) {
     [email.agent_id, email.id, campaignId, email.to_address, ip || null, userAgent || null]
   );
 
+  // Only return result (triggers socket notification) on first open
+  if (!isFirstOpen) return null;
+
   return { event: eventRows[0], agentId: email.agent_id };
 }
 
-// Record a click event
+// Record a click event (notify only on first click per email)
 async function recordClick(trackingToken, url, ip, userAgent) {
   const { rows } = await pool.query(
     'SELECT id, agent_id, to_address FROM emails WHERE tracking_token = $1',
@@ -103,6 +113,13 @@ async function recordClick(trackingToken, url, ip, userAgent) {
   if (rows.length === 0) return null;
 
   const email = rows[0];
+
+  // Check if this email already has any click event
+  const { rows: existing } = await pool.query(
+    "SELECT id FROM email_tracking_events WHERE email_id = $1 AND event_type = 'click' LIMIT 1",
+    [email.id]
+  );
+  const isFirstClick = existing.length === 0;
 
   // Update email counters
   await pool.query(
@@ -130,6 +147,9 @@ async function recordClick(trackingToken, url, ip, userAgent) {
      VALUES ($1, $2, $3, $4, 'click', $5, $6, $7) RETURNING *`,
     [email.agent_id, email.id, campaignId, email.to_address, url, ip || null, userAgent || null]
   );
+
+  // Only return result (triggers socket notification) on first click
+  if (!isFirstClick) return null;
 
   return { event: eventRows[0], agentId: email.agent_id };
 }

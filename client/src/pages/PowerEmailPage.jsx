@@ -43,8 +43,6 @@ function SmtpSettings({ onConfigsChanged }) {
   const [saving, setSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [googleAvailable, setGoogleAvailable] = useState(false);
-  const [googleConnecting, setGoogleConnecting] = useState(false);
 
   const fetchConfigs = useCallback(async () => {
     setLoading(true);
@@ -54,36 +52,14 @@ function SmtpSettings({ onConfigsChanged }) {
 
   useEffect(() => { fetchConfigs(); }, [fetchConfigs]);
 
-  // Check if Google OAuth is configured on the server
-  useEffect(() => {
-    emailApi.getGoogleOAuthStatus().then((r) => setGoogleAvailable(r.configured)).catch(() => {});
-  }, []);
-
-  // Handle Google OAuth callback (code in URL params)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get('code');
-    const state = params.get('state');
-    if (!code || !state) return;
-    // Clean URL
-    window.history.replaceState({}, '', window.location.pathname);
-    // Exchange code for tokens
-    setGoogleConnecting(true);
-    emailApi.sendGoogleOAuthCode(code)
-      .then((result) => {
-        fetchConfigs();
-        if (onConfigsChanged) onConfigsChanged();
-        alert(result.updated ? `Google account ${result.email} reconnected successfully!` : `Google account ${result.email} connected successfully!`);
-      })
-      .catch((err) => {
-        alert(err.response?.data?.error || 'Failed to connect Google account');
-      })
-      .finally(() => setGoogleConnecting(false));
-  }, []);
-
   const startAdd = () => {
     setForm({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true, imap_host: '', imap_port: 993, imap_secure: true });
     setEditingId('new');
+  };
+
+  const startAddGoogle = () => {
+    setForm({ label: 'Gmail', host: 'smtp.gmail.com', port: 465, secure: true, username: '', password: '', from_email: '', from_name: '', is_default: true, imap_host: 'imap.gmail.com', imap_port: 993, imap_secure: true });
+    setEditingId('new-google');
   };
 
   const startEdit = (cfg) => {
@@ -94,7 +70,7 @@ function SmtpSettings({ onConfigsChanged }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      if (editingId === 'new') {
+      if (editingId === 'new' || editingId === 'new-google') {
         await emailApi.saveSmtpConfig(form);
       } else {
         await emailApi.updateSmtpConfig(editingId, form);
@@ -134,66 +110,75 @@ function SmtpSettings({ onConfigsChanged }) {
     setDeleting(false);
   };
 
-  const handleGoogleConnect = async () => {
-    setGoogleConnecting(true);
-    try {
-      const { url } = await emailApi.getGoogleOAuthUrl();
-      window.location.href = url;
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to start Google connection');
-      setGoogleConnecting(false);
-    }
-  };
-
   if (loading) return <p className="text-gray-500 text-sm">Loading...</p>;
 
-  // Edit / Add form (only for manual SMTP accounts)
+  // Edit / Add form
   if (editingId !== null) {
-    const isNew = editingId === 'new';
-    const isOAuth = !isNew && form.auth_type === 'oauth';
+    const isNew = editingId === 'new' || editingId === 'new-google';
+    const isGoogle = editingId === 'new-google' || (form.host === 'smtp.gmail.com');
     return (
       <div className="max-w-lg mx-auto">
-        <h3 className="text-lg font-semibold mb-4 dark:text-white">{isNew ? 'Add SMTP Account' : 'Edit SMTP Account'}</h3>
+        <h3 className="text-lg font-semibold mb-4 dark:text-white flex items-center gap-2">
+          {isNew ? (isGoogle ? (
+            <>
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+              Add Google Account
+            </>
+          ) : 'Add SMTP Account') : 'Edit Account'}
+        </h3>
 
-        {isOAuth && (
+        {isGoogle && isNew && (
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
-            <p className="text-sm text-blue-700 dark:text-blue-300">This account is connected via Google OAuth. SMTP/IMAP settings are managed automatically. You can edit the label and display name below.</p>
+            <p className="text-sm text-blue-700 dark:text-blue-300">
+              SMTP & IMAP settings are pre-filled for Gmail. Enter your Gmail address and <strong>App Password</strong>.
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+              To generate an App Password: Google Account &rarr; Security &rarr; 2-Step Verification &rarr; App Passwords
+            </p>
           </div>
         )}
 
         <div className="space-y-3">
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Outgoing (SMTP)</p>
           {[
-            { key: 'label', label: 'Label', placeholder: 'e.g. Work Gmail' },
-            ...(!isOAuth ? [
-              { key: 'host', label: 'SMTP Host', placeholder: 'smtp.gmail.com' },
-              { key: 'port', label: 'SMTP Port', type: 'number' },
-              { key: 'username', label: 'Username / Email' },
-              { key: 'password', label: 'Password', type: 'password', placeholder: !isNew ? '(leave blank to keep current)' : '' },
-            ] : []),
-            { key: 'from_email', label: 'From Email', ...(isOAuth && { disabled: true }) },
+            { key: 'label', label: 'Label', placeholder: isGoogle ? 'e.g. My Gmail' : 'e.g. Work Email' },
+            { key: 'host', label: 'SMTP Host', placeholder: 'smtp.gmail.com', hidden: isGoogle && isNew },
+            { key: 'port', label: 'SMTP Port', type: 'number', hidden: isGoogle && isNew },
+            { key: 'username', label: isGoogle ? 'Gmail Address' : 'Username / Email', placeholder: isGoogle ? 'you@gmail.com' : '' },
+            { key: 'password', label: isGoogle ? 'App Password' : 'Password', type: 'password', placeholder: !isNew ? '(leave blank to keep current)' : (isGoogle ? '16-character app password' : '') },
+            { key: 'from_email', label: 'From Email', placeholder: isGoogle ? 'you@gmail.com' : '' },
             { key: 'from_name', label: 'From Name' },
-          ].map(({ key, label, type, placeholder, disabled: fieldDisabled }) => (
+          ].filter(f => !f.hidden).map(({ key, label, type, placeholder }) => (
             <div key={key}>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
               <input
                 type={type || 'text'}
                 value={form[key] || ''}
-                onChange={(e) => setForm({ ...form, [key]: type === 'number' ? parseInt(e.target.value) || 0 : e.target.value })}
+                onChange={(e) => {
+                  const val = type === 'number' ? parseInt(e.target.value) || 0 : e.target.value;
+                  const updates = { [key]: val };
+                  // Auto-fill from_email when typing username for Google
+                  if (isGoogle && key === 'username') updates.from_email = e.target.value;
+                  setForm({ ...form, ...updates });
+                }}
                 placeholder={placeholder}
-                disabled={fieldDisabled}
-                className={`w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500 ${fieldDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
             </div>
           ))}
-          {!isOAuth && (
+          {!(isGoogle && isNew) && (
             <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input type="checkbox" checked={form.secure} onChange={(e) => setForm({ ...form, secure: e.target.checked })} className="rounded" />
               Use TLS/SSL (SMTP)
             </label>
           )}
 
-          {!isOAuth && (
+          {!(isGoogle && isNew) && (
             <>
               <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-1" />
               <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Incoming (IMAP)</p>
@@ -236,19 +221,17 @@ function SmtpSettings({ onConfigsChanged }) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold dark:text-white">Email Accounts</h3>
         <div className="flex items-center gap-2">
-          {googleAvailable && (
-            <button onClick={handleGoogleConnect} disabled={googleConnecting}
-              className="px-3 py-1.5 text-sm font-medium bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 disabled:opacity-50 flex items-center gap-2">
-              <svg className="w-4 h-4" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-              </svg>
-              {googleConnecting ? 'Connecting...' : 'Connect Google'}
-            </button>
-          )}
-          <button onClick={startAdd} className="px-3 py-1.5 text-sm font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700">+ Add SMTP</button>
+          <button onClick={startAddGoogle}
+            className="px-3 py-1.5 text-sm font-medium bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 flex items-center gap-2">
+            <svg className="w-4 h-4" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+            </svg>
+            + Google
+          </button>
+          <button onClick={startAdd} className="px-3 py-1.5 text-sm font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700">+ SMTP</button>
         </div>
       </div>
 
@@ -256,18 +239,16 @@ function SmtpSettings({ onConfigsChanged }) {
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           <p className="text-sm">No email accounts configured yet.</p>
           <div className="flex items-center justify-center gap-3 mt-4">
-            {googleAvailable && (
-              <button onClick={handleGoogleConnect} disabled={googleConnecting}
-                className="px-4 py-2.5 text-sm font-medium bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 disabled:opacity-50 flex items-center gap-2 shadow-sm">
-                <svg className="w-5 h-5" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-                </svg>
-                Connect with Google
-              </button>
-            )}
+            <button onClick={startAddGoogle}
+              className="px-4 py-2.5 text-sm font-medium bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 flex items-center gap-2 shadow-sm">
+              <svg className="w-5 h-5" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+              Add Google Account
+            </button>
             <button onClick={startAdd} className="px-4 py-2.5 text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline">
               or add SMTP manually
             </button>
@@ -280,7 +261,7 @@ function SmtpSettings({ onConfigsChanged }) {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <p className="font-semibold text-gray-900 dark:text-white text-lg">{cfg.label || 'SMTP Account'}</p>
-                  {cfg.auth_type === 'oauth' && cfg.oauth_provider === 'google' ? (
+                  {cfg.host === 'smtp.gmail.com' ? (
                     <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
                       <svg className="w-3 h-3" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
@@ -298,12 +279,12 @@ function SmtpSettings({ onConfigsChanged }) {
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-gray-500 dark:text-gray-400">{cfg.auth_type === 'oauth' ? 'Provider' : 'SMTP Host'}</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{cfg.auth_type === 'oauth' ? 'Google (OAuth)' : `${cfg.host}:${cfg.port}`}</p>
+                  <p className="text-gray-500 dark:text-gray-400">SMTP Host</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{`${cfg.host}:${cfg.port}`}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 dark:text-gray-400">{cfg.auth_type === 'oauth' ? 'Auth' : 'SMTP Security'}</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{cfg.auth_type === 'oauth' ? 'OAuth 2.0' : (cfg.secure ? 'TLS/SSL' : 'None')}</p>
+                  <p className="text-gray-500 dark:text-gray-400">SMTP Security</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{cfg.secure ? 'TLS/SSL' : 'STARTTLS'}</p>
                 </div>
                 <div>
                   <p className="text-gray-500 dark:text-gray-400">Username</p>
@@ -333,12 +314,6 @@ function SmtpSettings({ onConfigsChanged }) {
                     className="px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50">
                     {testingId === cfg.id ? 'Testing...' : 'Test Connection'}
                   </button>
-                  {cfg.auth_type === 'oauth' && cfg.oauth_provider === 'google' && (
-                    <button onClick={handleGoogleConnect} disabled={googleConnecting}
-                      className="px-3 py-1.5 text-xs font-medium border border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50">
-                      {googleConnecting ? 'Reconnecting...' : 'Reconnect'}
-                    </button>
-                  )}
                   <button onClick={() => startEdit(cfg)}
                     className="px-3 py-1.5 text-xs font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700">Edit</button>
                   <button onClick={() => setDeleteConfirm(cfg.id)}
