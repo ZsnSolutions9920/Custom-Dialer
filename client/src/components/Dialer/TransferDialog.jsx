@@ -32,8 +32,8 @@ export default function TransferDialog({ onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-md p-6">
-        <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-100">Transfer Call</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl w-full max-w-md p-6">
+        <h3 className="text-sm font-medium mb-4 text-gray-700 dark:text-gray-100">Transfer Call</h3>
 
         {otherAgents.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-sm">No other agents available.</p>
@@ -42,7 +42,7 @@ export default function TransferDialog({ onClose }) {
             {otherAgents.map((a) => (
               <div
                 key={a.id}
-                className="flex items-center justify-between p-3 border border-gray-100 dark:border-gray-700 rounded-lg hover:bg-brand-50/50 dark:hover:bg-gray-700/50 transition-colors"
+                className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-brand-50/50 dark:hover:bg-gray-700/50 transition-colors"
               >
                 <div className="flex items-center gap-2">
                   <span

@@ -26,8 +26,8 @@ export default function AdminGate({ children }) {
 
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-xl shadow-card border border-gray-100 dark:border-gray-700 w-full max-w-sm mx-4 sm:mx-0">
-        <h2 className="text-xl font-bold text-gray-800 dark:text-white text-center mb-6">Admin Access Required</h2>
+      <div className="bg-white dark:bg-gray-800 p-6 sm:p-8 rounded-lg shadow-card border border-gray-200 dark:border-gray-700 w-full max-w-sm mx-4 sm:mx-0">
+        <h2 className="text-sm font-medium text-gray-800 dark:text-white text-center mb-6">Admin Access Required</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 p-3 rounded text-sm">{error}</div>

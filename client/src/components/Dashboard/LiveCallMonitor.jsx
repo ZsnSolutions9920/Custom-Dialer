@@ -14,7 +14,7 @@ const formatDuration = (seconds) => {
 
 const medals = [
   'bg-brand-500 text-white',
-  'bg-brand-100 text-brand-700 dark:bg-brand-900/50 dark:text-brand-400',
+  'bg-brand-50 text-brand-600 dark:bg-brand-900/50 dark:text-brand-400',
   'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
 ];
 
@@ -169,9 +169,9 @@ export default function LiveCallMonitor() {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-card border border-gray-100/80 dark:border-gray-700 hover:shadow-card-hover transition-all duration-300">
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
       <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-100">
           Agent Overview ({agents.length})
         </h3>
         <span className="text-xs text-gray-400 dark:text-gray-500 font-medium">Last 7 days</span>
@@ -189,7 +189,7 @@ export default function LiveCallMonitor() {
             return (
               <li
                 key={agent.id}
-                className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
+                className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors cursor-pointer"
                 onClick={() => setSelectedAgent(agent)}
                 title="View attendance"
               >

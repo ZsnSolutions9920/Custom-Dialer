@@ -9,10 +9,10 @@ export default function AgentPresenceList() {
 
   return (
     <div className="card">
-      <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="font-semibold text-sm text-gray-800 dark:text-gray-100">Team ({agents.length})</h3>
+      <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <h3 className="text-sm font-medium text-gray-800 dark:text-gray-100">Team ({agents.length})</h3>
       </div>
-      <ul className="divide-y divide-gray-100 dark:divide-gray-700">
+      <ul className="divide-y divide-gray-200 dark:divide-gray-700">
         {agents.map((agent) => (
           <li
             key={agent.id}

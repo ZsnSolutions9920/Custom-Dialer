@@ -73,12 +73,12 @@ export default function ContactsPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Contacts</h1>
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-white">Contacts</h1>
         <button
           onClick={() => { setEditingContact(null); setShowForm(true); }}
-          className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors"
+          className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-md hover:bg-brand-700 transition-colors"
         >
           Add Contact
         </button>
@@ -89,7 +89,7 @@ export default function ContactsPage() {
         placeholder="Search contacts..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="w-full max-w-sm px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:text-gray-100"
+        className="w-full max-w-sm px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 dark:bg-gray-700 dark:text-gray-100"
       />
 
       <ContactsList

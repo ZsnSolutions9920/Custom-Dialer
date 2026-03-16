@@ -25,7 +25,7 @@ export default function CallLogFilters({ filters, onFilterChange }) {
   const hasFilters = filters.search || filters.direction || filters.status || filters.disposition || filters.dateFrom || filters.dateTo;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-card border border-gray-100 dark:border-gray-700 p-4">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-card border border-gray-200 dark:border-gray-700 p-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap items-center gap-3">
         <input
           type="text"

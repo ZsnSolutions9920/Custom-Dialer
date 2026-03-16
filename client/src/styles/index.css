@@ -2,14 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
 @layer base {
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 
   *:focus-visible {
-    outline: 2px solid #10B981;
+    outline: 2px solid #7c3aed;
     outline-offset: 2px;
   }
 
@@ -20,14 +23,14 @@
 
 @layer components {
   .card {
-    @apply bg-white rounded-xl shadow-card border border-gray-100 dark:bg-gray-800 dark:border-gray-700;
+    @apply bg-white rounded-lg border border-gray-200 dark:bg-gray-800 dark:border-gray-700;
   }
 
   .sidebar-active {
-    background-color: rgba(255, 255, 255, 0.15);
+    @apply bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400;
   }
 
   .sidebar-hover:hover {
-    background-color: rgba(255, 255, 255, 0.08);
+    @apply bg-gray-100 text-gray-700 dark:bg-gray-700/50 dark:text-gray-200;
   }
 }

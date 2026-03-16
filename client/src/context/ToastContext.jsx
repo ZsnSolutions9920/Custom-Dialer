@@ -42,7 +42,7 @@ export function ToastProvider({ children }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`${typeStyles[t.type]} px-4 py-3 rounded-lg shadow-lg flex items-center justify-between gap-3 text-sm font-medium animate-slide-in`}
+            className={`${typeStyles[t.type]} px-4 py-2.5 rounded-md shadow-lg flex items-center justify-between gap-3 text-sm font-medium animate-slide-in`}
           >
             <span>{t.message}</span>
             <button

@@ -43,10 +43,10 @@ export default function ContactFormModal({ contact, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+        <h2 className="text-lg font-medium text-gray-800 dark:text-gray-100 mb-4">
           {isEdit ? 'Edit Contact' : 'Add Contact'}
         </h2>
 

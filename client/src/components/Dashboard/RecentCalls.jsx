@@ -13,11 +13,11 @@ function timeAgo(dateStr) {
 }
 
 const STATUS_COLORS = {
-  completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-  'no-answer': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  busy: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
-  failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  canceled: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400',
+  completed: 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400',
+  'no-answer': 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400',
+  busy: 'bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400',
+  failed: 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400',
+  canceled: 'bg-gray-50 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
 };
 
 export default function RecentCalls({ onCall, agentId }) {
@@ -44,16 +44,13 @@ export default function RecentCalls({ onCall, agentId }) {
     call.direction === 'inbound' ? call.from_number : call.to_number;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-card border border-gray-100/80 dark:border-gray-700 hover:shadow-card-hover transition-all duration-300">
-      <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-100">Recent Calls</h3>
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
+    <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div className="px-5 py-3.5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <h3 className="text-sm font-medium text-gray-700 dark:text-gray-200">Recent Calls</h3>
       </div>
 
       {loading ? (
-        <div className="p-6 space-y-3">
+        <div className="p-5 space-y-3">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="animate-pulse flex items-center gap-3">
               <div className="h-8 w-8 bg-gray-100 dark:bg-gray-700 rounded-full" />
@@ -65,37 +62,37 @@ export default function RecentCalls({ onCall, agentId }) {
           ))}
         </div>
       ) : calls.length === 0 ? (
-        <div className="p-6 text-center text-sm text-gray-400">No recent calls</div>
+        <div className="p-5 text-center text-sm text-gray-400">No recent calls</div>
       ) : (
         <ul className="divide-y divide-gray-100 dark:divide-gray-700">
           {calls.map((call) => {
             const number = getNumber(call);
             return (
-              <li key={call.id} className="px-6 py-3 flex items-center gap-3 hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
+              <li key={call.id} className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
                   call.direction === 'inbound'
-                    ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                    : 'bg-brand-100 text-brand-600 dark:bg-brand-900/30 dark:text-brand-400'
+                    ? 'bg-blue-50 text-blue-500 dark:bg-blue-900/20 dark:text-blue-400'
+                    : 'bg-brand-50 text-brand-500 dark:bg-brand-900/20 dark:text-brand-400'
                 }`}>
                   {call.direction === 'inbound' ? (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
                     </svg>
                   ) : (
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 10.5L12 3m0 0l7.5 7.5M12 3v18" />
                     </svg>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-800 dark:text-gray-100 font-mono truncate">{number || 'Unknown'}</span>
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-100 font-mono truncate">{number || 'Unknown'}</span>
                     {call.contact_name && (
                       <span className="text-xs text-gray-400 dark:text-gray-500 truncate">{call.contact_name}</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${STATUS_COLORS[call.status] || 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'}`}>
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${STATUS_COLORS[call.status] || 'bg-gray-50 text-gray-500 dark:bg-gray-700 dark:text-gray-400'}`}>
                       {call.status}
                     </span>
                     <span className="text-xs text-gray-400">{call.started_at ? timeAgo(call.started_at) : ''}</span>
@@ -103,7 +100,7 @@ export default function RecentCalls({ onCall, agentId }) {
                 </div>
                 <button
                   onClick={() => onCall(number)}
-                  className="p-2 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 dark:hover:bg-green-900/30 dark:hover:text-green-400 transition-colors flex-shrink-0"
+                  className="p-1.5 rounded-md text-gray-400 hover:text-brand-600 hover:bg-brand-50 dark:hover:bg-brand-900/20 dark:hover:text-brand-400 transition-colors flex-shrink-0"
                   title="Redial"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

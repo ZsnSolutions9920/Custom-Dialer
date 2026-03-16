@@ -35,13 +35,13 @@ export default function DashboardPage() {
 
   return (
     <AdminGate>
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Admin Dashboard</h1>
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-white">Admin Dashboard</h1>
         <button
           onClick={handlePurge}
           disabled={purging}
-          className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+          className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 disabled:opacity-50 transition-colors"
         >
           {purging ? 'Purging...' : 'Purge Old Call History'}
         </button>
@@ -49,7 +49,7 @@ export default function DashboardPage() {
 
       <DashboardStats key={refreshKey} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <LiveCallMonitor />
         <RecentCalls key={`recent-${refreshKey}`} onCall={makeCall} />
       </div>

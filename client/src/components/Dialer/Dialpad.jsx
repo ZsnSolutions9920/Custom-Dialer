@@ -52,7 +52,7 @@ export default function Dialpad() {
             value={number}
             onChange={(e) => setNumber(e.target.value)}
             placeholder="+1 (555) 123-4567"
-            className="flex-1 min-w-0 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-2.5 text-center text-lg font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow dark:bg-gray-700 dark:text-gray-100"
+            className="flex-1 min-w-0 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2.5 text-center text-lg font-mono focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-shadow dark:bg-gray-700 dark:text-gray-100"
           />
           {number && (
             <button onClick={handleBackspace} className="text-gray-400 hover:text-brand-500 px-2 py-2 transition-colors">
@@ -78,7 +78,7 @@ export default function Dialpad() {
             <button
               key={key}
               onClick={() => handleKey(key)}
-              className="bg-gray-50 dark:bg-gray-700 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 active:bg-brand-100 dark:active:bg-brand-900/50 rounded-xl py-3 text-xl font-medium transition-colors dark:text-gray-200"
+              className="bg-gray-50 dark:bg-gray-700 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 active:bg-brand-100 dark:active:bg-brand-900/50 rounded-lg py-3 text-xl font-medium transition-colors dark:text-gray-200"
             >
               {key}
             </button>
@@ -90,7 +90,7 @@ export default function Dialpad() {
         <button
           onClick={handleDial}
           disabled={!number.trim()}
-          className="w-full bg-green-600 text-white py-3 rounded-xl hover:bg-green-700 disabled:opacity-50 font-medium text-lg transition-colors shadow-sm"
+          className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium text-lg transition-colors shadow-sm"
         >
           Call
         </button>

@@ -118,7 +118,7 @@ function SmtpSettings({ onConfigsChanged }) {
     const isGoogle = editingId === 'new-google' || (form.host === 'smtp.gmail.com');
     return (
       <div className="max-w-lg mx-auto">
-        <h3 className="text-lg font-semibold mb-4 dark:text-white flex items-center gap-2">
+        <h3 className="text-base font-semibold mb-4 dark:text-white flex items-center gap-2">
           {isNew ? (isGoogle ? (
             <>
               <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -219,7 +219,7 @@ function SmtpSettings({ onConfigsChanged }) {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold dark:text-white">Email Accounts</h3>
+        <h3 className="text-base font-semibold dark:text-white">Email Accounts</h3>
         <div className="flex items-center gap-2">
           <button onClick={startAddGoogle}
             className="px-3 py-1.5 text-sm font-medium bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 flex items-center gap-2">
@@ -257,7 +257,7 @@ function SmtpSettings({ onConfigsChanged }) {
       ) : (
         <div className="space-y-3">
           {configs.map((cfg) => (
-            <div key={cfg.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-3">
+            <div key={cfg.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <p className="font-semibold text-gray-900 dark:text-white text-lg">{cfg.label || 'SMTP Account'}</p>
@@ -328,8 +328,8 @@ function SmtpSettings({ onConfigsChanged }) {
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete Email Account</h4>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
+            <h4 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Delete Email Account</h4>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">Are you sure you want to delete this email account? This action cannot be undone.</p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setDeleteConfirm(null)} disabled={deleting}
@@ -383,7 +383,7 @@ function TemplateManager({ onUseTemplate }) {
   if (editing) {
     return (
       <div className="max-w-2xl mx-auto">
-        <h3 className="text-lg font-semibold mb-4 dark:text-white">{editing === 'new' ? 'Create Template' : 'Edit Template'}</h3>
+        <h3 className="text-base font-semibold mb-4 dark:text-white">{editing === 'new' ? 'Create Template' : 'Edit Template'}</h3>
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Template Name</label>
@@ -412,7 +412,7 @@ function TemplateManager({ onUseTemplate }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold dark:text-white">Email Templates</h3>
+        <h3 className="text-base font-semibold dark:text-white">Email Templates</h3>
         <button onClick={() => { setForm({ name: '', subject: '', body: '' }); setEditing('new'); }}
           className="px-3 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700">+ New Template</button>
       </div>
@@ -421,7 +421,7 @@ function TemplateManager({ onUseTemplate }) {
       ) : (
         <div className="space-y-3">
           {templates.map((t) => (
-            <div key={t.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between">
+            <div key={t.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between">
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">{t.name}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Subject: {t.subject}</p>
@@ -600,7 +600,7 @@ function ComposeEmail({ smtpConfigs, onBack }) {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold dark:text-white">Compose Email</h3>
+        <h3 className="text-base font-semibold dark:text-white">Compose Email</h3>
         {onBack && <button onClick={onBack} className="text-sm text-brand-600 dark:text-brand-400 hover:underline">&larr; Back</button>}
       </div>
 
@@ -846,7 +846,7 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold dark:text-white">New Campaign</h3>
+        <h3 className="text-base font-semibold dark:text-white">New Campaign</h3>
         <button onClick={onBack} className="text-sm text-brand-600 dark:text-brand-400 hover:underline">&larr; Back</button>
       </div>
 
@@ -1031,7 +1031,7 @@ function CampaignBuilder({ smtpConfigs, onBack, onCreated }) {
             <p className="text-sm text-gray-500 dark:text-gray-400">{delayMs / 1000}s between each email ({Math.round(3600000 / delayMs)} emails/hour)</p>
           </div>
 
-          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 space-y-2">
+          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-2">
             <p className="text-sm font-medium text-gray-900 dark:text-white">Campaign Summary</p>
             <p className="text-sm text-gray-600 dark:text-gray-300">Name: {name}</p>
             <p className="text-sm text-gray-600 dark:text-gray-300">Recipients: {currentRecipientCount}</p>
@@ -1124,7 +1124,7 @@ function CampaignProgress({ campaign, onBack }) {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold dark:text-white">{campaignData.name}</h3>
+        <h3 className="text-base font-semibold dark:text-white">{campaignData.name}</h3>
         <button onClick={onBack} className="text-sm text-brand-600 dark:text-brand-400 hover:underline">&larr; Back</button>
       </div>
 
@@ -1141,7 +1141,7 @@ function CampaignProgress({ campaign, onBack }) {
       {(campaignData.status === 'sending' || complete) && (
         <div className="space-y-4">
           {/* Progress bar */}
-          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
+          <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {complete ? 'Complete' : 'Sending...'}
@@ -1159,16 +1159,16 @@ function CampaignProgress({ campaign, onBack }) {
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{progress.current}</p>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+              <p className="text-xl font-semibold text-gray-900 dark:text-white">{progress.current}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Processed</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-green-600">{progress.sentCount}</p>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+              <p className="text-xl font-semibold text-green-600">{progress.sentCount}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Sent</p>
             </div>
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 text-center">
-              <p className="text-2xl font-bold text-red-600">{progress.failedCount}</p>
+            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 text-center">
+              <p className="text-xl font-semibold text-red-600">{progress.failedCount}</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">Failed</p>
             </div>
           </div>
@@ -1787,7 +1787,7 @@ function Inbox() {
 
   return (
     <>
-      <div className="flex h-[calc(100vh-120px)] border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
+      <div className="flex h-[calc(100vh-120px)] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden bg-white dark:bg-gray-900">
         {renderSidebar()}
         {renderEmailList()}
         {renderDetail()}
@@ -1796,8 +1796,8 @@ function Inbox() {
       {/* Delete confirmation modal */}
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete Email</h4>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
+            <h4 className="text-base font-semibold text-gray-900 dark:text-white mb-2">Delete Email</h4>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">Are you sure you want to delete this email? This action cannot be undone.</p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setDeleteConfirm(null)} disabled={deleting}
@@ -1839,14 +1839,14 @@ function CampaignsList({ onSelectCampaign, onNewCampaign }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold dark:text-white">Campaigns</h3>
+        <h3 className="text-base font-semibold dark:text-white">Campaigns</h3>
         <button onClick={onNewCampaign}
           className="px-3 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700">+ New Campaign</button>
       </div>
       {loading ? (
         <p className="text-gray-500 text-sm">Loading...</p>
       ) : campaigns.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-8 text-center">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
           <p className="text-gray-500 dark:text-gray-400 text-sm">No campaigns yet. Create your first campaign to get started.</p>
         </div>
       ) : (
@@ -1860,7 +1860,7 @@ function CampaignsList({ onSelectCampaign, onNewCampaign }) {
             };
             return (
               <button key={c.id} onClick={() => onSelectCampaign(c)}
-                className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
+                className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center justify-between text-left hover:bg-gray-50 dark:hover:bg-gray-750 transition-colors">
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white">{c.name}</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">{c.subject} &middot; {new Date(c.created_at).toLocaleDateString()}</p>
@@ -2000,14 +2000,14 @@ function Notifications() {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold dark:text-white">Email Notifications</h3>
+        <h3 className="text-base font-semibold dark:text-white">Email Notifications</h3>
         <span className="text-sm text-gray-500 dark:text-gray-400">{total} events</span>
       </div>
 
       {loading ? (
         <p className="text-gray-500 text-sm py-8 text-center">Loading...</p>
       ) : events.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-12 text-center">
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-12 text-center">
           <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
@@ -2017,7 +2017,7 @@ function Notifications() {
       ) : (
         <div className="space-y-2">
           {events.map((ev, idx) => (
-            <div key={ev.id || idx} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-start gap-3">
+            <div key={ev.id || idx} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-start gap-3">
               {/* Icon */}
               <div className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center ${
                 ev.event_type === 'open'

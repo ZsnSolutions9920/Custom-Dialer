@@ -78,14 +78,14 @@ export default function IncomingCallModal() {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-sm text-center">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-xl p-8 w-full max-w-sm text-center">
         <div className="mb-4">
           <div className="w-16 h-16 bg-brand-100 dark:bg-brand-900/30 rounded-full flex items-center justify-center mx-auto mb-3 animate-pulse">
             <svg className="w-8 h-8 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Incoming Call</h3>
+          <h3 className="text-sm font-medium text-gray-700 dark:text-gray-100">Incoming Call</h3>
           {callerName && (
             <p className="text-gray-800 dark:text-gray-100 font-semibold mt-1">{callerName}</p>
           )}

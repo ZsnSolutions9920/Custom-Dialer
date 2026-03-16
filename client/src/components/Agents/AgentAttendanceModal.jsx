@@ -46,11 +46,11 @@ export default function AgentAttendanceModal({ agent, onClose }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 w-full max-w-lg mx-4 max-h-[80vh] flex flex-col"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4 max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-          <h3 className="font-semibold text-gray-800 dark:text-white">
+        <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-800 dark:text-white">
             Attendance — {agent.display_name}
           </h3>
           <div className="flex items-center gap-2">
@@ -79,7 +79,7 @@ export default function AgentAttendanceModal({ agent, onClose }) {
           ) : (
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-gray-700">
+                <tr className="text-left text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                   <th className="pb-2 font-medium">Clock In</th>
                   <th className="pb-2 font-medium">Clock Out</th>
                   <th className="pb-2 font-medium">Duration</th>

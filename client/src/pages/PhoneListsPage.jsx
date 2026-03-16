@@ -169,7 +169,7 @@ function UploadModal({ onClose, onUploaded, toast }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4 p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Upload Leads</h2>
 
         <div className="space-y-4">
@@ -233,7 +233,7 @@ function FollowUpModal({ onConfirm, onCancel }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onCancel}>
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-sm mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-sm mx-4 p-6" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Schedule Follow-Up</h2>
 
         <div className="mb-4">
@@ -499,7 +499,7 @@ function LeadsList({ listId, listName, onBack, onViewProfile, toast }) {
         <p className="text-gray-500 dark:text-gray-400 text-sm">No leads in this list.</p>
       ) : (
         <>
-          <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-x-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-x-auto">
             <table className="w-full min-w-[950px] text-sm">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-700/50 text-left text-gray-500 dark:text-gray-400">
@@ -775,7 +775,7 @@ function ClientProfile({ entryId, onBack, toast }) {
       </button>
 
       {/* Header Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h2 className="text-xl font-bold text-gray-800 dark:text-white">
@@ -807,7 +807,7 @@ function ClientProfile({ entryId, onBack, toast }) {
 
       {/* Metadata Sections */}
       {Object.entries(sections).map(([sectionName, fields]) => (
-        <div key={sectionName} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-4">
+        <div key={sectionName} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-4">
           <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-3">{sectionName}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
             {Object.entries(fields).map(([key, value]) => (
@@ -821,7 +821,7 @@ function ClientProfile({ entryId, onBack, toast }) {
       ))}
 
       {Object.keys(additional).length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 mb-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-4">
           <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-3">Additional Information</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
             {Object.entries(additional).map(([key, value]) => (
@@ -891,7 +891,7 @@ export default function PhoneListsPage() {
   if (selectedEntryId) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Leads</h1>
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-white">Leads</h1>
         <ClientProfile
           entryId={selectedEntryId}
           onBack={() => setSelectedEntryId(null)}
@@ -905,7 +905,7 @@ export default function PhoneListsPage() {
   if (selectedListId) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Leads</h1>
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-white">Leads</h1>
         <LeadsList
           listId={selectedListId}
           listName={selectedListName}
@@ -921,7 +921,7 @@ export default function PhoneListsPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Leads</h1>
+        <h1 className="text-xl font-semibold text-gray-800 dark:text-white">Leads</h1>
         <button
           onClick={() => setShowUpload(true)}
           className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 transition-colors"
@@ -941,7 +941,7 @@ export default function PhoneListsPage() {
           {lists.map((list) => (
             <div
               key={list.id}
-              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow"
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5 hover:shadow-md transition-shadow"
             >
               <div className="flex items-start justify-between mb-3">
                 <button

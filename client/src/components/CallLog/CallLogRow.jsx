@@ -35,7 +35,7 @@ export default function CallLogRow({ call, onCallUpdated, onCallDeleted }) {
 
   return (
     <>
-      <tr className="hover:bg-brand-50/30 dark:hover:bg-gray-700/50 transition-colors">
+      <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
         <td className="px-4 py-3 text-sm">
           <span
             className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
