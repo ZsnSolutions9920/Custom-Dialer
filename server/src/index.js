@@ -18,6 +18,7 @@ const phoneListRoutes = require('./routes/phoneLists');
 const twilioRoutes = require('./routes/twilio');
 const attendanceRoutes = require('./routes/attendance');
 const emailRoutes = require('./routes/email');
+const emailTrackingRoutes = require('./routes/emailTracking');
 
 const app = express();
 const server = http.createServer(app);
@@ -41,6 +42,9 @@ app.use(express.json({ limit: '50mb' }));
 // Socket.IO
 const io = setupSocket(server);
 app.set('io', io);
+
+// Public routes (no auth — tracking pixels and click redirects)
+app.use('/api/email', emailTrackingRoutes);
 
 // API Routes
 app.use('/api/auth', authRoutes);

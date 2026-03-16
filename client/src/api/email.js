@@ -45,3 +45,14 @@ export const replyToEmail = (id, data) => api.post(`/email/inbox/${id}/reply`, d
 export const forwardEmail = (id, data) => api.post(`/email/inbox/${id}/forward`, data).then((r) => r.data);
 export const getEmailThread = (id) => api.get(`/email/inbox/${id}/thread`).then((r) => r.data);
 export const getListColumns = (listId) => api.get(`/email/list-columns/${listId}`).then((r) => r.data);
+
+// Google OAuth
+export const getGoogleOAuthUrl = () => api.get('/email/oauth/google/url').then((r) => r.data);
+export const sendGoogleOAuthCode = (code) => api.post('/email/oauth/google/callback', { code }).then((r) => r.data);
+export const getGoogleOAuthStatus = () => api.get('/email/oauth/google/status').then((r) => r.data);
+
+// Tracking / Notifications
+export const getTrackingEvents = ({ page, limit } = {}) =>
+  api.get('/email/tracking/events', { params: { page, limit } }).then((r) => r.data);
+export const getEmailTrackingStats = (emailId) =>
+  api.get(`/email/tracking/email/${emailId}`).then((r) => r.data);

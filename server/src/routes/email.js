@@ -2,6 +2,8 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const emailService = require('../services/emailService');
+const trackingService = require('../services/trackingService');
+const googleOAuth = require('../services/googleOAuth');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -63,6 +65,40 @@ router.post('/smtp/:id/test', async (req, res) => {
   } catch (err) {
     logger.error(err, 'SMTP test failed');
     res.status(400).json({ error: err.message || 'SMTP connection failed' });
+  }
+});
+
+// ─── Google OAuth ────────────────────────────────────────────────────
+
+router.get('/oauth/google/url', async (req, res) => {
+  try {
+    const url = googleOAuth.getAuthUrl(req.agent.id);
+    res.json({ url });
+  } catch (err) {
+    logger.error(err, 'Failed to generate Google OAuth URL');
+    res.status(400).json({ error: err.message || 'Google OAuth not configured' });
+  }
+});
+
+router.post('/oauth/google/callback', async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'Authorization code is required' });
+    const result = await googleOAuth.handleCallback(code, req.agent.id);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    logger.error(err, 'Google OAuth callback failed');
+    res.status(400).json({ error: err.message || 'Failed to connect Google account' });
+  }
+});
+
+router.get('/oauth/google/status', async (req, res) => {
+  try {
+    res.json({
+      configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REDIRECT_URI),
+    });
+  } catch {
+    res.json({ configured: false });
   }
 });
 
@@ -207,8 +243,8 @@ router.post('/send-single', upload.array('attachments', 5), async (req, res) => 
       content: f.buffer,
     }));
 
-    const info = await emailService.sendEmail(smtpConfig, { to, cc: cc || undefined, subject, html: body, attachments });
-    await emailService.saveSentEmail(req.agent.id, { to, cc: cc || undefined, subject, html: body, messageId: info.messageId, smtpConfigId: parseInt(smtpConfigId) });
+    const saved = await emailService.saveSentEmail(req.agent.id, { to, cc: cc || undefined, subject, html: body, smtpConfigId: parseInt(smtpConfigId) });
+    const info = await emailService.sendEmail(smtpConfig, { to, cc: cc || undefined, subject, html: body, attachments, trackingToken: saved.tracking_token });
     res.json({ success: true, message: 'Email sent successfully' });
   } catch (err) {
     logger.error(err, 'Send single email failed');
@@ -396,6 +432,33 @@ router.post('/inbox/:id/forward', async (req, res) => {
   } catch (err) {
     logger.error(err, 'Forward failed');
     res.status(500).json({ error: err.message || 'Failed to forward email' });
+  }
+});
+
+// ─── Tracking / Notifications ────────────────────────────────────────
+
+router.get('/tracking/events', async (req, res) => {
+  try {
+    const { page, limit } = req.query;
+    const result = await trackingService.getTrackingEvents(req.agent.id, {
+      page: parseInt(page) || 1,
+      limit: parseInt(limit) || 50,
+    });
+    res.json(result);
+  } catch (err) {
+    logger.error(err, 'Failed to get tracking events');
+    res.status(500).json({ error: 'Failed to get tracking events' });
+  }
+});
+
+router.get('/tracking/email/:id', async (req, res) => {
+  try {
+    const stats = await trackingService.getEmailTrackingStats(parseInt(req.params.id), req.agent.id);
+    if (!stats) return res.status(404).json({ error: 'Not found' });
+    res.json(stats);
+  } catch (err) {
+    logger.error(err, 'Failed to get email tracking stats');
+    res.status(500).json({ error: 'Failed to get tracking stats' });
   }
 });
 

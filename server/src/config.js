@@ -34,4 +34,9 @@ module.exports = {
   },
   serverBaseUrl: process.env.SERVER_BASE_URL,
   openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
+  google: {
+    clientId: process.env.GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || '',
+  },
 };

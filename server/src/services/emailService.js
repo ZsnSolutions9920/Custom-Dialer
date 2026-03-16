@@ -2,12 +2,32 @@ const pool = require('../db/pool');
 const nodemailer = require('nodemailer');
 const { ImapFlow } = require('imapflow');
 const { simpleParser } = require('mailparser');
+const trackingService = require('./trackingService');
+const googleOAuth = require('./googleOAuth');
+
+// ─── Auth helpers ────────────────────────────────────────────────────
+
+async function buildSmtpAuth(config) {
+  if (config.auth_type === 'oauth' && config.oauth_provider === 'google') {
+    const accessToken = await googleOAuth.getValidAccessToken(config);
+    return { type: 'OAuth2', user: config.username, accessToken };
+  }
+  return { user: config.username, pass: config.password };
+}
+
+async function buildImapAuth(config) {
+  if (config.auth_type === 'oauth' && config.oauth_provider === 'google') {
+    const accessToken = await googleOAuth.getValidAccessToken(config);
+    return { user: config.username, accessToken };
+  }
+  return { user: config.username, pass: config.password };
+}
 
 // ─── SMTP Config CRUD ───────────────────────────────────────────────
 
 async function getSmtpConfigs(agentId) {
   const { rows } = await pool.query(
-    'SELECT id, agent_id, label, host, port, secure, username, from_email, from_name, is_default, imap_host, imap_port, imap_secure, created_at FROM smtp_configs WHERE agent_id = $1 ORDER BY is_default DESC, created_at DESC',
+    'SELECT id, agent_id, label, host, port, secure, username, from_email, from_name, is_default, imap_host, imap_port, imap_secure, auth_type, oauth_provider, created_at FROM smtp_configs WHERE agent_id = $1 ORDER BY is_default DESC, created_at DESC',
     [agentId]
   );
   return rows;
@@ -59,11 +79,14 @@ async function deleteSmtpConfig(id, agentId) {
 async function testSmtpConnection(id, agentId) {
   const config = await getSmtpConfig(id, agentId);
   if (!config) throw new Error('SMTP config not found');
+  const auth = await buildSmtpAuth(config);
   const transporter = nodemailer.createTransport({
     host: config.host,
     port: config.port,
     secure: config.secure,
-    auth: { user: config.username, pass: config.password },
+    auth,
+    tls: { rejectUnauthorized: false },
+    ...((!config.secure && config.port !== 465) && { requireTLS: true }),
   });
   await transporter.verify();
   return true;
@@ -274,18 +297,23 @@ function resolveUploadedVariables(template, data) {
 
 // ─── Send Single Email ──────────────────────────────────────────────
 
-async function sendEmail(smtpConfig, { to, cc, subject, html, attachments, headers }) {
+async function sendEmail(smtpConfig, { to, cc, subject, html, attachments, headers, trackingToken }) {
+  const auth = await buildSmtpAuth(smtpConfig);
   const transporter = nodemailer.createTransport({
     host: smtpConfig.host,
     port: smtpConfig.port,
     secure: smtpConfig.secure,
-    auth: { user: smtpConfig.username, pass: smtpConfig.password },
+    auth,
+    tls: { rejectUnauthorized: false },
+    ...((!smtpConfig.secure && smtpConfig.port !== 465) && { requireTLS: true }),
   });
+  // Inject tracking pixel and link wrappers if token provided
+  const trackedHtml = trackingToken ? trackingService.injectTracking(html, trackingToken) : html;
   const mailOptions = {
     from: smtpConfig.from_name ? `"${smtpConfig.from_name}" <${smtpConfig.from_email}>` : smtpConfig.from_email,
     to,
     subject,
-    html,
+    html: trackedHtml,
   };
   if (cc) mailOptions.cc = cc;
   if (attachments && attachments.length > 0) {
@@ -334,7 +362,9 @@ async function runCampaign(campaignId, agentId, io) {
     const html = r.resolve(campaign.body);
 
     try {
-      await sendEmail(smtpConfig, { to: r.email, subject, html });
+      // Save sent email first to get tracking token
+      const saved = await saveSentEmail(agentId, { to: r.email, subject, html, smtpConfigId: smtpConfig.id });
+      await sendEmail(smtpConfig, { to: r.email, subject, html, trackingToken: saved.tracking_token });
       sentCount++;
       if (r.uploaded) {
         await updateUploadedRecipientStatus(r.id, 'sent');
@@ -382,12 +412,14 @@ async function fetchInboxEmails(agentId, targetConfigId) {
   for (const config of imapConfigs) {
     try {
       const fullConfig = await getSmtpConfig(config.id, agentId);
+      const imapAuth = await buildImapAuth(fullConfig);
       const client = new ImapFlow({
         host: config.imap_host,
         port: config.imap_port || 993,
         secure: config.imap_secure !== false,
-        auth: { user: fullConfig.username, pass: fullConfig.password },
+        auth: imapAuth,
         logger: false,
+        tls: { rejectUnauthorized: false },
       });
 
       await client.connect();
@@ -509,7 +541,7 @@ async function getEmails(agentId, { folder = 'all', page = 1, limit = 30, search
   }
 
   const { rows } = await pool.query(
-    `SELECT id, message_id, folder, from_address, from_name, to_address, cc_address, subject, is_read, has_attachments, email_date, smtp_config_id, created_at
+    `SELECT id, message_id, folder, from_address, from_name, to_address, cc_address, subject, is_read, has_attachments, email_date, smtp_config_id, created_at, open_count, click_count
      FROM emails
      WHERE agent_id = $1 ${folderClause} ${configClause} ${searchClause}
      ORDER BY email_date DESC
@@ -581,11 +613,14 @@ async function saveSentEmail(agentId, { to, cc, subject, html, messageId, smtpCo
   const config = smtpConfigId
     ? await getSmtpConfig(smtpConfigId, agentId)
     : (await getSmtpConfigs(agentId))[0];
-  await pool.query(
-    `INSERT INTO emails (agent_id, smtp_config_id, message_id, folder, from_address, from_name, to_address, cc_address, subject, body_html, is_read, email_date, in_reply_to)
-     VALUES ($1, $2, $3, 'sent', $4, $5, $6, $7, $8, $9, true, NOW(), $10)`,
-    [agentId, config?.id || null, messageId || null, config?.from_email || '', config?.from_name || '', to, cc || null, subject, html, inReplyTo || null]
+  const trackingToken = trackingService.generateToken();
+  const { rows } = await pool.query(
+    `INSERT INTO emails (agent_id, smtp_config_id, message_id, folder, from_address, from_name, to_address, cc_address, subject, body_html, is_read, email_date, in_reply_to, tracking_token)
+     VALUES ($1, $2, $3, 'sent', $4, $5, $6, $7, $8, $9, true, NOW(), $10, $11)
+     RETURNING id, tracking_token`,
+    [agentId, config?.id || null, messageId || null, config?.from_email || '', config?.from_name || '', to, cc || null, subject, html, inReplyTo || null, trackingToken]
   );
+  return rows[0];
 }
 
 // ─── Delete Email ────────────────────────────────────────────────────
@@ -615,8 +650,10 @@ async function replyToEmail(agentId, { emailId, body, cc }) {
     headers['References'] = original.message_id;
   }
 
-  const info = await sendEmail(smtpConfig, { to: replyTo, cc, subject: replySubject, html: body, headers });
-  await saveSentEmail(agentId, { to: replyTo, cc, subject: replySubject, html: body, messageId: info.messageId, smtpConfigId: smtpConfig.id, inReplyTo: original.message_id });
+  const saved = await saveSentEmail(agentId, { to: replyTo, cc, subject: replySubject, html: body, smtpConfigId: smtpConfig.id, inReplyTo: original.message_id });
+  const info = await sendEmail(smtpConfig, { to: replyTo, cc, subject: replySubject, html: body, headers, trackingToken: saved.tracking_token });
+  // Update message_id after send
+  await pool.query('UPDATE emails SET message_id = $1 WHERE id = $2', [info.messageId, saved.id]);
   return { success: true, message: 'Reply sent' };
 }
 
@@ -633,8 +670,9 @@ async function forwardEmail(agentId, { emailId, to, cc, body }) {
   const separator = `<br/><hr/><p><strong>---------- Forwarded message ----------</strong></p><p><strong>From:</strong> ${original.from_name || ''} &lt;${original.from_address}&gt;<br/><strong>Date:</strong> ${new Date(original.email_date).toLocaleString()}<br/><strong>Subject:</strong> ${original.subject || ''}<br/><strong>To:</strong> ${original.to_address}</p>`;
   const fullBody = `${body || ''}${separator}${original.body_html || original.body_text || ''}`;
 
-  const info = await sendEmail(smtpConfig, { to, cc, subject: fwdSubject, html: fullBody });
-  await saveSentEmail(agentId, { to, cc, subject: fwdSubject, html: fullBody, messageId: info.messageId, smtpConfigId: smtpConfig.id });
+  const saved = await saveSentEmail(agentId, { to, cc, subject: fwdSubject, html: fullBody, smtpConfigId: smtpConfig.id });
+  const info = await sendEmail(smtpConfig, { to, cc, subject: fwdSubject, html: fullBody, trackingToken: saved.tracking_token });
+  await pool.query('UPDATE emails SET message_id = $1 WHERE id = $2', [info.messageId, saved.id]);
   return { success: true, message: 'Email forwarded' };
 }
 

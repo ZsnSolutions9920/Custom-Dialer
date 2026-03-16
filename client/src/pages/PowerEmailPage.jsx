@@ -33,7 +33,7 @@ const QUILL_MODULES = {
 
 // ─── Sub-views ──────────────────────────────────────────────────────
 
-function SmtpSettings() {
+function SmtpSettings({ onConfigsChanged }) {
   const [configs, setConfigs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState(null); // null = list view, 'new' = add form, number = edit form
@@ -41,8 +41,10 @@ function SmtpSettings() {
   const [testingId, setTestingId] = useState(null);
   const [testResults, setTestResults] = useState({});
   const [saving, setSaving] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // config id to confirm delete
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [googleAvailable, setGoogleAvailable] = useState(false);
+  const [googleConnecting, setGoogleConnecting] = useState(false);
 
   const fetchConfigs = useCallback(async () => {
     setLoading(true);
@@ -51,6 +53,33 @@ function SmtpSettings() {
   }, []);
 
   useEffect(() => { fetchConfigs(); }, [fetchConfigs]);
+
+  // Check if Google OAuth is configured on the server
+  useEffect(() => {
+    emailApi.getGoogleOAuthStatus().then((r) => setGoogleAvailable(r.configured)).catch(() => {});
+  }, []);
+
+  // Handle Google OAuth callback (code in URL params)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    if (!code || !state) return;
+    // Clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+    // Exchange code for tokens
+    setGoogleConnecting(true);
+    emailApi.sendGoogleOAuthCode(code)
+      .then((result) => {
+        fetchConfigs();
+        if (onConfigsChanged) onConfigsChanged();
+        alert(result.updated ? `Google account ${result.email} reconnected successfully!` : `Google account ${result.email} connected successfully!`);
+      })
+      .catch((err) => {
+        alert(err.response?.data?.error || 'Failed to connect Google account');
+      })
+      .finally(() => setGoogleConnecting(false));
+  }, []);
 
   const startAdd = () => {
     setForm({ label: '', host: '', port: 587, secure: false, username: '', password: '', from_email: '', from_name: '', is_default: true, imap_host: '', imap_port: 993, imap_secure: true });
@@ -72,6 +101,7 @@ function SmtpSettings() {
       }
       setEditingId(null);
       fetchConfigs();
+      if (onConfigsChanged) onConfigsChanged();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to save');
     }
@@ -97,53 +127,53 @@ function SmtpSettings() {
       await emailApi.deleteSmtpConfig(deleteConfirm);
       setDeleteConfirm(null);
       fetchConfigs();
+      if (onConfigsChanged) onConfigsChanged();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to delete');
     }
     setDeleting(false);
   };
 
+  const handleGoogleConnect = async () => {
+    setGoogleConnecting(true);
+    try {
+      const { url } = await emailApi.getGoogleOAuthUrl();
+      window.location.href = url;
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to start Google connection');
+      setGoogleConnecting(false);
+    }
+  };
+
   if (loading) return <p className="text-gray-500 text-sm">Loading...</p>;
 
-  // Edit / Add form
+  // Edit / Add form (only for manual SMTP accounts)
   if (editingId !== null) {
     const isNew = editingId === 'new';
+    const isOAuth = !isNew && form.auth_type === 'oauth';
     return (
       <div className="max-w-lg mx-auto">
         <h3 className="text-lg font-semibold mb-4 dark:text-white">{isNew ? 'Add SMTP Account' : 'Edit SMTP Account'}</h3>
+
+        {isOAuth && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg">
+            <p className="text-sm text-blue-700 dark:text-blue-300">This account is connected via Google OAuth. SMTP/IMAP settings are managed automatically. You can edit the label and display name below.</p>
+          </div>
+        )}
+
         <div className="space-y-3">
           <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Outgoing (SMTP)</p>
           {[
             { key: 'label', label: 'Label', placeholder: 'e.g. Work Gmail' },
-            { key: 'host', label: 'SMTP Host', placeholder: 'smtp.gmail.com' },
-            { key: 'port', label: 'SMTP Port', type: 'number' },
-            { key: 'username', label: 'Username / Email' },
-            { key: 'password', label: 'Password', type: 'password', placeholder: !isNew ? '(leave blank to keep current)' : '' },
-            { key: 'from_email', label: 'From Email' },
+            ...(!isOAuth ? [
+              { key: 'host', label: 'SMTP Host', placeholder: 'smtp.gmail.com' },
+              { key: 'port', label: 'SMTP Port', type: 'number' },
+              { key: 'username', label: 'Username / Email' },
+              { key: 'password', label: 'Password', type: 'password', placeholder: !isNew ? '(leave blank to keep current)' : '' },
+            ] : []),
+            { key: 'from_email', label: 'From Email', ...(isOAuth && { disabled: true }) },
             { key: 'from_name', label: 'From Name' },
-          ].map(({ key, label, type, placeholder }) => (
-            <div key={key}>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
-              <input
-                type={type || 'text'}
-                value={form[key]}
-                onChange={(e) => setForm({ ...form, [key]: type === 'number' ? parseInt(e.target.value) || 0 : e.target.value })}
-                placeholder={placeholder}
-                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
-              />
-            </div>
-          ))}
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <input type="checkbox" checked={form.secure} onChange={(e) => setForm({ ...form, secure: e.target.checked })} className="rounded" />
-            Use TLS/SSL (SMTP)
-          </label>
-
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-1" />
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Incoming (IMAP)</p>
-          {[
-            { key: 'imap_host', label: 'IMAP Host', placeholder: 'imap.gmail.com' },
-            { key: 'imap_port', label: 'IMAP Port', type: 'number' },
-          ].map(({ key, label, type, placeholder }) => (
+          ].map(({ key, label, type, placeholder, disabled: fieldDisabled }) => (
             <div key={key}>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
               <input
@@ -151,15 +181,44 @@ function SmtpSettings() {
                 value={form[key] || ''}
                 onChange={(e) => setForm({ ...form, [key]: type === 'number' ? parseInt(e.target.value) || 0 : e.target.value })}
                 placeholder={placeholder}
-                className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                disabled={fieldDisabled}
+                className={`w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500 ${fieldDisabled ? 'opacity-60 cursor-not-allowed' : ''}`}
               />
             </div>
           ))}
-          <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <input type="checkbox" checked={form.imap_secure !== false} onChange={(e) => setForm({ ...form, imap_secure: e.target.checked })} className="rounded" />
-            Use TLS/SSL (IMAP)
-          </label>
-          <p className="text-xs text-gray-400 dark:text-gray-500">IMAP uses the same username/password as SMTP. Configure IMAP to sync your inbox.</p>
+          {!isOAuth && (
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+              <input type="checkbox" checked={form.secure} onChange={(e) => setForm({ ...form, secure: e.target.checked })} className="rounded" />
+              Use TLS/SSL (SMTP)
+            </label>
+          )}
+
+          {!isOAuth && (
+            <>
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-3 mt-1" />
+              <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Incoming (IMAP)</p>
+              {[
+                { key: 'imap_host', label: 'IMAP Host', placeholder: 'imap.gmail.com' },
+                { key: 'imap_port', label: 'IMAP Port', type: 'number' },
+              ].map(({ key, label, type, placeholder }) => (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
+                  <input
+                    type={type || 'text'}
+                    value={form[key] || ''}
+                    onChange={(e) => setForm({ ...form, [key]: type === 'number' ? parseInt(e.target.value) || 0 : e.target.value })}
+                    placeholder={placeholder}
+                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm dark:bg-gray-700 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                  />
+                </div>
+              ))}
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                <input type="checkbox" checked={form.imap_secure !== false} onChange={(e) => setForm({ ...form, imap_secure: e.target.checked })} className="rounded" />
+                Use TLS/SSL (IMAP)
+              </label>
+              <p className="text-xs text-gray-400 dark:text-gray-500">IMAP uses the same username/password as SMTP. Configure IMAP to sync your inbox.</p>
+            </>
+          )}
           <div className="flex gap-2 pt-2">
             <button onClick={handleSave} disabled={saving} className="px-4 py-2 bg-brand-600 text-white text-sm font-medium rounded-lg hover:bg-brand-700 disabled:opacity-50">
               {saving ? 'Saving...' : 'Save'}
@@ -175,31 +234,76 @@ function SmtpSettings() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold dark:text-white">SMTP Accounts</h3>
-        <button onClick={startAdd} className="px-3 py-1.5 text-sm font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700">+ Add Account</button>
+        <h3 className="text-lg font-semibold dark:text-white">Email Accounts</h3>
+        <div className="flex items-center gap-2">
+          {googleAvailable && (
+            <button onClick={handleGoogleConnect} disabled={googleConnecting}
+              className="px-3 py-1.5 text-sm font-medium bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 disabled:opacity-50 flex items-center gap-2">
+              <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+              </svg>
+              {googleConnecting ? 'Connecting...' : 'Connect Google'}
+            </button>
+          )}
+          <button onClick={startAdd} className="px-3 py-1.5 text-sm font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700">+ Add SMTP</button>
+        </div>
       </div>
 
       {configs.length === 0 ? (
         <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-          <p className="text-sm">No SMTP accounts configured yet.</p>
-          <button onClick={startAdd} className="mt-3 text-sm text-brand-600 dark:text-brand-400 hover:underline">Add your first SMTP account</button>
+          <p className="text-sm">No email accounts configured yet.</p>
+          <div className="flex items-center justify-center gap-3 mt-4">
+            {googleAvailable && (
+              <button onClick={handleGoogleConnect} disabled={googleConnecting}
+                className="px-4 py-2.5 text-sm font-medium bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 disabled:opacity-50 flex items-center gap-2 shadow-sm">
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                Connect with Google
+              </button>
+            )}
+            <button onClick={startAdd} className="px-4 py-2.5 text-sm font-medium text-brand-600 dark:text-brand-400 hover:underline">
+              or add SMTP manually
+            </button>
+          </div>
         </div>
       ) : (
         <div className="space-y-3">
           {configs.map((cfg) => (
             <div key={cfg.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-5 space-y-3">
               <div className="flex items-center justify-between">
-                <p className="font-semibold text-gray-900 dark:text-white text-lg">{cfg.label || 'SMTP Account'}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-semibold text-gray-900 dark:text-white text-lg">{cfg.label || 'SMTP Account'}</p>
+                  {cfg.auth_type === 'oauth' && cfg.oauth_provider === 'google' ? (
+                    <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full font-medium flex items-center gap-1">
+                      <svg className="w-3 h-3" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                      </svg>
+                      Google
+                    </span>
+                  ) : (
+                    <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 px-2 py-0.5 rounded-full font-medium">SMTP</span>
+                  )}
+                </div>
                 <span className="text-xs bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 px-2.5 py-1 rounded-full font-medium">Configured</span>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <p className="text-gray-500 dark:text-gray-400">SMTP Host</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{cfg.host}:{cfg.port}</p>
+                  <p className="text-gray-500 dark:text-gray-400">{cfg.auth_type === 'oauth' ? 'Provider' : 'SMTP Host'}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{cfg.auth_type === 'oauth' ? 'Google (OAuth)' : `${cfg.host}:${cfg.port}`}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500 dark:text-gray-400">SMTP Security</p>
-                  <p className="font-medium text-gray-900 dark:text-white">{cfg.secure ? 'TLS/SSL' : 'None'}</p>
+                  <p className="text-gray-500 dark:text-gray-400">{cfg.auth_type === 'oauth' ? 'Auth' : 'SMTP Security'}</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{cfg.auth_type === 'oauth' ? 'OAuth 2.0' : (cfg.secure ? 'TLS/SSL' : 'None')}</p>
                 </div>
                 <div>
                   <p className="text-gray-500 dark:text-gray-400">Username</p>
@@ -229,6 +333,12 @@ function SmtpSettings() {
                     className="px-3 py-1.5 text-xs font-medium border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 disabled:opacity-50">
                     {testingId === cfg.id ? 'Testing...' : 'Test Connection'}
                   </button>
+                  {cfg.auth_type === 'oauth' && cfg.oauth_provider === 'google' && (
+                    <button onClick={handleGoogleConnect} disabled={googleConnecting}
+                      className="px-3 py-1.5 text-xs font-medium border border-blue-200 dark:border-blue-700 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 disabled:opacity-50">
+                      {googleConnecting ? 'Reconnecting...' : 'Reconnect'}
+                    </button>
+                  )}
                   <button onClick={() => startEdit(cfg)}
                     className="px-3 py-1.5 text-xs font-medium bg-brand-600 text-white rounded-lg hover:bg-brand-700">Edit</button>
                   <button onClick={() => setDeleteConfirm(cfg.id)}
@@ -244,8 +354,8 @@ function SmtpSettings() {
       {deleteConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 max-w-sm w-full mx-4">
-            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete SMTP Account</h4>
-            <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">Are you sure you want to delete this SMTP account? This action cannot be undone.</p>
+            <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete Email Account</h4>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">Are you sure you want to delete this email account? This action cannot be undone.</p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setDeleteConfirm(null)} disabled={deleting}
                 className="px-4 py-2 text-sm font-medium bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500">Cancel</button>
@@ -1503,6 +1613,23 @@ function Inbox() {
                   {email.folder === 'sent' && (
                     <span className="text-[9px] font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/30 px-1 py-0.5 rounded">Sent</span>
                   )}
+                  {email.open_count > 0 && (
+                    <span className="text-[9px] font-medium text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1 py-0.5 rounded flex items-center gap-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      {email.open_count}
+                    </span>
+                  )}
+                  {email.click_count > 0 && (
+                    <span className="text-[9px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-1 py-0.5 rounded flex items-center gap-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
+                      </svg>
+                      {email.click_count}
+                    </span>
+                  )}
                 </div>
               </button>
             ))}
@@ -1578,6 +1705,9 @@ function Inbox() {
               )}
             </div>
           </div>
+
+          {/* Tracking stats for sent emails */}
+          {emailDetail.folder === 'sent' && <EmailTrackingStats emailId={emailDetail.id} />}
 
           {/* Thread / Body */}
           <div className="flex-1 overflow-y-auto">
@@ -1775,12 +1905,227 @@ function CampaignsList({ onSelectCampaign, onNewCampaign }) {
   );
 }
 
+// ─── Email Tracking Badge (shown on email detail) ───────────────────
+
+function EmailTrackingStats({ emailId }) {
+  const [stats, setStats] = useState(null);
+  const [expanded, setExpanded] = useState(false);
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!emailId) return;
+    emailApi.getEmailTrackingStats(emailId).then(setStats).catch(() => {});
+  }, [emailId]);
+
+  // Real-time updates
+  useEffect(() => {
+    if (!socket || !emailId) return;
+    const handler = (data) => {
+      if (data.event?.email_id === emailId) {
+        // Refresh stats
+        emailApi.getEmailTrackingStats(emailId).then(setStats).catch(() => {});
+      }
+    };
+    socket.on('email:tracking', handler);
+    return () => socket.off('email:tracking', handler);
+  }, [socket, emailId]);
+
+  if (!stats || (stats.open_count === 0 && stats.click_count === 0)) return null;
+
+  return (
+    <div className="mx-5 my-2">
+      <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {stats.open_count > 0 && (
+              <div className="flex items-center gap-1.5 text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                <span className="font-medium text-green-700 dark:text-green-400">Opened {stats.open_count}x</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {stats.first_opened_at && `First: ${new Date(stats.first_opened_at).toLocaleString()}`}
+                </span>
+              </div>
+            )}
+            {stats.click_count > 0 && (
+              <div className="flex items-center gap-1.5 text-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                </svg>
+                <span className="font-medium text-blue-700 dark:text-blue-400">Clicked {stats.click_count}x</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {stats.first_clicked_at && `First: ${new Date(stats.first_clicked_at).toLocaleString()}`}
+                </span>
+              </div>
+            )}
+          </div>
+          {stats.events?.length > 0 && (
+            <button onClick={() => setExpanded(!expanded)} className="text-xs text-amber-700 dark:text-amber-400 hover:underline">
+              {expanded ? 'Hide' : 'Details'}
+            </button>
+          )}
+        </div>
+        {expanded && stats.events?.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-amber-200 dark:border-amber-700 max-h-40 overflow-y-auto space-y-1">
+            {stats.events.map((ev) => (
+              <div key={ev.id || ev.created_at} className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ev.event_type === 'open' ? 'bg-green-500' : 'bg-blue-500'}`} />
+                <span className="font-medium">{ev.event_type === 'open' ? 'Opened' : 'Clicked'}</span>
+                {ev.link_url && <span className="truncate text-gray-400 dark:text-gray-500">{ev.link_url}</span>}
+                <span className="ml-auto whitespace-nowrap text-gray-400 dark:text-gray-500">{new Date(ev.created_at).toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Notifications View ─────────────────────────────────────────────
+
+function Notifications() {
+  const { socket } = useSocket();
+  const [events, setEvents] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const limit = 50;
+
+  const fetchEvents = useCallback(async (p = 1) => {
+    setLoading(true);
+    try {
+      const data = await emailApi.getTrackingEvents({ page: p, limit });
+      setEvents(data.events);
+      setTotal(data.total);
+      setPage(data.page);
+    } catch { }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  // Real-time: prepend new events
+  useEffect(() => {
+    if (!socket) return;
+    const handler = (data) => {
+      const ev = data.event;
+      if (!ev) return;
+      setEvents((prev) => [{ ...ev, email_subject: ev.email_subject || '', to_address: ev.recipient_email }, ...prev.slice(0, limit - 1)]);
+      setTotal((t) => t + 1);
+    };
+    socket.on('email:tracking', handler);
+    return () => socket.off('email:tracking', handler);
+  }, [socket]);
+
+  const totalPages = Math.ceil(total / limit);
+
+  return (
+    <div className="max-w-3xl mx-auto">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold dark:text-white">Email Notifications</h3>
+        <span className="text-sm text-gray-500 dark:text-gray-400">{total} events</span>
+      </div>
+
+      {loading ? (
+        <p className="text-gray-500 text-sm py-8 text-center">Loading...</p>
+      ) : events.length === 0 ? (
+        <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-12 text-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mx-auto text-gray-300 dark:text-gray-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">No tracking events yet.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">You'll see notifications here when recipients open your emails or click links.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {events.map((ev, idx) => (
+            <div key={ev.id || idx} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 flex items-start gap-3">
+              {/* Icon */}
+              <div className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center ${
+                ev.event_type === 'open'
+                  ? 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400'
+                  : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+              }`}>
+                {ev.event_type === 'open' ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                  </svg>
+                )}
+              </div>
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-900 dark:text-white">
+                  <span className="font-semibold">{ev.recipient_email}</span>
+                  {' '}
+                  {ev.event_type === 'open' ? 'opened your email' : 'clicked a link'}
+                </p>
+                {ev.email_subject && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                    Subject: {ev.email_subject}
+                  </p>
+                )}
+                {ev.event_type === 'click' && ev.link_url && (
+                  <p className="text-xs text-blue-500 dark:text-blue-400 truncate mt-0.5">
+                    {ev.link_url}
+                  </p>
+                )}
+              </div>
+              {/* Timestamp */}
+              <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap flex-shrink-0">
+                {formatTrackingDate(ev.created_at)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-4">
+          <button onClick={() => fetchEvents(page - 1)} disabled={page <= 1}
+            className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-600 dark:text-gray-400">
+            Prev
+          </button>
+          <span className="text-sm text-gray-400 dark:text-gray-500">{page}/{totalPages}</span>
+          <button onClick={() => fetchEvents(page + 1)} disabled={page >= totalPages}
+            className="px-3 py-1.5 text-sm border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 text-gray-600 dark:text-gray-400">
+            Next
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatTrackingDate(dateStr) {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - d;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'Just now';
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay < 7) return `${diffDay}d ago`;
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
 // ─── Main Page ──────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
   { key: 'inbox', label: 'Inbox' },
   { key: 'campaigns', label: 'Campaigns' },
   { key: 'compose', label: 'Compose' },
+  { key: 'notifications', label: 'Notifications' },
   { key: 'templates', label: 'Templates' },
   { key: 'smtp', label: 'Settings' },
 ];
@@ -1789,6 +2134,8 @@ export default function PowerEmailPage() {
   const [view, setView] = useState('inbox');
   const [smtpConfigs, setSmtpConfigs] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
+  const [notifBadge, setNotifBadge] = useState(0);
+  const { socket } = useSocket();
 
   const fetchConfigs = useCallback(async () => {
     try {
@@ -1798,37 +2145,33 @@ export default function PowerEmailPage() {
 
   useEffect(() => { fetchConfigs(); }, [fetchConfigs]);
 
+  // Real-time tracking notification badge
+  useEffect(() => {
+    if (!socket) return;
+    const handler = () => {
+      // Only increment badge if not currently on the notifications tab
+      setNotifBadge((prev) => prev + 1);
+    };
+    socket.on('email:tracking', handler);
+    return () => socket.off('email:tracking', handler);
+  }, [socket]);
+
+  // Clear badge when visiting notifications
+  useEffect(() => {
+    if (view === 'notifications') setNotifBadge(0);
+  }, [view]);
+
   const goToInbox = () => { setView('inbox'); };
 
   const activeNav = view === 'campaign-new' || view === 'campaign-progress' ? 'campaigns' : view;
 
-  const renderContent = () => {
-    if (view === 'inbox') return <Inbox />;
-    if (view === 'smtp') return <SmtpSettings />;
-    if (view === 'templates') return <TemplateManager />;
-    if (view === 'compose') return <ComposeEmail smtpConfigs={smtpConfigs} onBack={goToInbox} />;
-    if (view === 'campaigns') {
-      return (
-        <CampaignsList
-          onSelectCampaign={(c) => { setSelectedCampaign(c); setView('campaign-progress'); }}
-          onNewCampaign={() => setView('campaign-new')}
-        />
-      );
-    }
-    if (view === 'campaign-new') {
-      return (
-        <CampaignBuilder
-          smtpConfigs={smtpConfigs}
-          onBack={() => setView('campaigns')}
-          onCreated={(campaign) => { setSelectedCampaign(campaign); setView('campaign-progress'); }}
-        />
-      );
-    }
-    if (view === 'campaign-progress' && selectedCampaign) {
-      return <CampaignProgress campaign={selectedCampaign} onBack={() => setView('campaigns')} />;
-    }
-    return null;
-  };
+  // Track which tabs have been visited so we mount them lazily but keep them alive
+  const [mountedTabs, setMountedTabs] = useState({ inbox: true });
+  useEffect(() => {
+    setMountedTabs((prev) => ({ ...prev, [view]: true }));
+  }, [view]);
+
+  const isCampaignSub = view === 'campaign-new' || view === 'campaign-progress';
 
   return (
     <div className="flex flex-col h-full">
@@ -1841,25 +2184,79 @@ export default function PowerEmailPage() {
               <button
                 key={item.key}
                 onClick={() => setView(item.key)}
-                className={`px-3 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
+                className={`relative px-3 py-1.5 text-sm font-medium rounded-lg whitespace-nowrap transition-colors ${
                   activeNav === item.key
                     ? 'bg-brand-600 text-white'
                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800'
                 }`}
               >
                 {item.label}
+                {item.key === 'notifications' && notifBadge > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] flex items-center justify-center px-1 text-[10px] font-bold bg-red-500 text-white rounded-full">
+                    {notifBadge > 99 ? '99+' : notifBadge}
+                  </span>
+                )}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      {/* Scrollable content */}
-      <div className={`flex-1 ${view === 'inbox' ? 'overflow-hidden p-4 sm:p-4' : 'overflow-y-auto p-4 sm:p-6'}`}>
-        <div className={view === 'inbox' ? 'h-full' : 'max-w-5xl mx-auto'}>
-          {renderContent()}
+      {/* Persistent tab panels — mounted once visited, hidden when inactive */}
+      <div className={`flex-1 overflow-hidden p-4 sm:p-4 ${view === 'inbox' ? '' : 'hidden'}`}>
+        <div className="h-full">
+          {mountedTabs.inbox && <Inbox />}
         </div>
       </div>
+      <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${view === 'smtp' ? '' : 'hidden'}`}>
+        <div className="max-w-5xl mx-auto">
+          {mountedTabs.smtp && <SmtpSettings onConfigsChanged={fetchConfigs} />}
+        </div>
+      </div>
+      <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${view === 'templates' ? '' : 'hidden'}`}>
+        <div className="max-w-5xl mx-auto">
+          {mountedTabs.templates && <TemplateManager />}
+        </div>
+      </div>
+      <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${view === 'compose' ? '' : 'hidden'}`}>
+        <div className="max-w-5xl mx-auto">
+          {mountedTabs.compose && <ComposeEmail smtpConfigs={smtpConfigs} onBack={goToInbox} />}
+        </div>
+      </div>
+      <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${view === 'notifications' ? '' : 'hidden'}`}>
+        <div className="max-w-5xl mx-auto">
+          {mountedTabs.notifications && <Notifications />}
+        </div>
+      </div>
+      <div className={`flex-1 overflow-y-auto p-4 sm:p-6 ${view === 'campaigns' && !isCampaignSub ? '' : 'hidden'}`}>
+        <div className="max-w-5xl mx-auto">
+          {mountedTabs.campaigns && (
+            <CampaignsList
+              onSelectCampaign={(c) => { setSelectedCampaign(c); setView('campaign-progress'); }}
+              onNewCampaign={() => setView('campaign-new')}
+            />
+          )}
+        </div>
+      </div>
+      {/* Campaign sub-views are transient — they unmount when you leave */}
+      {view === 'campaign-new' && (
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="max-w-5xl mx-auto">
+            <CampaignBuilder
+              smtpConfigs={smtpConfigs}
+              onBack={() => setView('campaigns')}
+              onCreated={(campaign) => { setSelectedCampaign(campaign); setView('campaign-progress'); }}
+            />
+          </div>
+        </div>
+      )}
+      {view === 'campaign-progress' && selectedCampaign && (
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="max-w-5xl mx-auto">
+            <CampaignProgress campaign={selectedCampaign} onBack={() => setView('campaigns')} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
