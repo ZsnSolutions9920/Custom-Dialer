@@ -210,34 +210,19 @@ export default function PowerDialerOverlay() {
             {currentEntry.primary_email && (
               <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5" title={currentEntry.primary_email}>{currentEntry.primary_email}</p>
             )}
-            {(() => {
-              const trademark = getMetaField(currentEntry.metadata, ['word mark', 'mark', 'trademark']);
-              const serial = getMetaField(currentEntry.metadata, ['serial number']);
-              const statusDate = getMetaField(currentEntry.metadata, ['status date']);
-              if (!trademark && !serial && !statusDate) return null;
-              return (
-                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
-                  {trademark && (
-                    <div className="col-span-2">
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500">Trademark</span>
-                      <p className="text-xs text-gray-700 dark:text-gray-300 truncate" title={trademark}>{trademark}</p>
+            {/* Show all metadata fields from the sheet */}
+            {currentEntry.metadata && typeof currentEntry.metadata === 'object' && Object.keys(currentEntry.metadata).length > 0 && (
+              <div className="mt-2 space-y-1.5">
+                {Object.entries(currentEntry.metadata).map(([key, value]) => (
+                  value ? (
+                    <div key={key}>
+                      <span className="text-[10px] uppercase tracking-wider text-gray-400 dark:text-gray-500">{key}</span>
+                      <p className="text-xs text-gray-700 dark:text-gray-300 truncate" title={String(value)}>{String(value)}</p>
                     </div>
-                  )}
-                  {serial && (
-                    <div>
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500">Serial #</span>
-                      <p className="text-xs text-gray-700 dark:text-gray-300">{serial}</p>
-                    </div>
-                  )}
-                  {statusDate && (
-                    <div>
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500">Status Date</span>
-                      <p className="text-xs text-gray-700 dark:text-gray-300">{statusDate}</p>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                  ) : null
+                ))}
+              </div>
+            )}
           </div>
         )}
 
