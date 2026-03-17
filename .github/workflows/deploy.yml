@@ -21,7 +21,8 @@ jobs:
             set -e
             cd ~/custom-dialer/Custom-Dialer/
             git checkout -- .
-            git pull origin main
+            git fetch origin main
+            git reset --hard origin/main
             cd server && npm install --production && node src/db/migrate.js
             cd ../client && npm install && npm run build
             cd ..
