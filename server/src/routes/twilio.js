@@ -23,6 +23,34 @@ router.post('/voice', validateTwilio, async (req, res) => {
     const agent = fromIdentity ? await agentService.findByIdentity(fromIdentity) : null;
     const agentPhone = agent?.twilio_phone_number || null;
 
+    // Mobile app joining a conference for inbound call answer
+    if (From && From.startsWith('client:') && To && To.startsWith('conference:')) {
+      const conferenceName = To.replace('conference:', '');
+      logger.info({ conferenceName, agent: agent?.id }, 'Mobile client joining conference');
+
+      const dial = twiml.dial();
+      dial.conference(
+        {
+          startConferenceOnEnter: true,
+          endConferenceOnExit: true,
+          statusCallback: `${config.serverBaseUrl}/api/twilio/conference-status`,
+          statusCallbackEvent: 'start end join leave',
+        },
+        conferenceName
+      );
+
+      if (agent) {
+        await agentService.updateStatus(agent.id, 'on_call');
+        const io = req.app.get('io');
+        if (io) {
+          io.emit('agent:status', { id: agent.id, status: 'on_call' });
+        }
+      }
+
+      res.type('text/xml');
+      return res.send(twiml.toString());
+    }
+
     // Outbound call from agent (From is a browser client, To is a phone number)
     if (From && From.startsWith('client:') && To && !To.startsWith('client:')) {
       // Block outbound calls if agent has no assigned Twilio number
@@ -456,6 +484,71 @@ router.post('/recording-status', validateTwilio, async (req, res) => {
   }
 
   res.sendStatus(200);
+});
+
+// Mobile app: accept an inbound call by bridging into a conference
+router.post('/accept-mobile', async (req, res) => {
+  const { callSid, fromNumber } = req.body;
+
+  if (!callSid && !fromNumber) {
+    return res.status(400).json({ error: 'callSid or fromNumber is required' });
+  }
+
+  try {
+    const twilioClient = require('../services/twilioClient');
+    const conferenceName = `conf_mobile_${callSid || Date.now()}`;
+
+    // Try to redirect the original inbound call into the conference
+    let redirected = false;
+    if (callSid) {
+      try {
+        const confTwiml = new VoiceResponse();
+        const dial = confTwiml.dial();
+        dial.conference(
+          {
+            startConferenceOnEnter: true,
+            endConferenceOnExit: true,
+            record: 'record-from-start',
+            recordingStatusCallback: `${config.serverBaseUrl}/api/twilio/recording-status`,
+            recordingStatusCallbackEvent: 'completed',
+            statusCallback: `${config.serverBaseUrl}/api/twilio/conference-status`,
+            statusCallbackEvent: 'start end join leave',
+            waitUrl: `${config.serverBaseUrl}/api/twilio/hold-music`,
+          },
+          conferenceName
+        );
+        await twilioClient.calls(callSid).update({ twiml: confTwiml.toString() });
+        redirected = true;
+        logger.info({ callSid, conferenceName }, 'Inbound call redirected to conference');
+      } catch (redirectErr) {
+        logger.warn({ callSid, err: redirectErr.message }, 'Could not redirect original call, will dial caller into conference');
+      }
+    }
+
+    // If redirect failed (call ended/answered), dial the caller into the conference
+    if (!redirected && fromNumber) {
+      // Find an agent phone to use as caller ID
+      const agents = await agentService.listAll();
+      const agentPhone = agents.length > 0 ? agents[0].twilio_phone_number : config.twilio.phoneNumber;
+
+      await twilioClient.conferences(conferenceName)
+        .participants
+        .create({
+          to: fromNumber,
+          from: agentPhone || config.twilio.phoneNumber,
+          earlyMedia: true,
+          endConferenceOnExit: true,
+          statusCallback: `${config.serverBaseUrl}/api/twilio/conference-status`,
+          statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+        });
+      logger.info({ fromNumber, conferenceName }, 'Dialed caller into conference as fallback');
+    }
+
+    res.json({ conferenceName });
+  } catch (err) {
+    logger.error(err, 'Error accepting inbound call for mobile');
+    res.status(500).json({ error: 'Failed to accept call: ' + err.message });
+  }
 });
 
 module.exports = router;
