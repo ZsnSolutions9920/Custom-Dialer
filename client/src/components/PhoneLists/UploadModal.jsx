@@ -155,7 +155,6 @@ export default function UploadModal({ onClose, onUploaded, toast }) {
     if (!file || phoneCol === -1) return;
     setUploading(true);
     try {
-      const list = await createPhoneList(listName || file.name);
       const entries = allRowsRef.current
         .map((row) => {
           const phone = row[phoneCol]?.replace(/[^\d+]/g, '');
@@ -177,6 +176,7 @@ export default function UploadModal({ onClose, onUploaded, toast }) {
         setUploading(false);
         return;
       }
+      const list = await createPhoneList({ name: listName || file.name, totalCount: entries.length });
       const BATCH = 500;
       for (let i = 0; i < entries.length; i += BATCH) {
         await addListEntries(list.id, entries.slice(i, i + BATCH));
