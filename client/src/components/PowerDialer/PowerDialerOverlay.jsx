@@ -157,85 +157,58 @@ export default function PowerDialerOverlay() {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-96 bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-brand-600 dark:bg-brand-700 text-white">
-        <div className="flex items-center gap-2">
-          {phase === 'paused' ? (
-            <span className="inline-flex h-2.5 w-2.5 rounded-full bg-yellow-400" />
-          ) : (
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
-            </span>
-          )}
-          <span className="text-sm font-semibold">Power Dialer</span>
+    <>
+      {/* ── Right Status Panel ── */}
+      <div className="fixed right-0 top-0 z-40 h-full w-72 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 shadow-xl flex flex-col overflow-y-auto">
+        {/* Panel header */}
+        <div className="px-4 py-3 bg-brand-600 dark:bg-brand-700 text-white flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-2">
+            {phase === 'paused' ? (
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-yellow-400" />
+            ) : (
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-white" />
+              </span>
+            )}
+            <span className="text-sm font-semibold">Power Dialer</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            {phase !== 'paused' ? (
+              <button onClick={pauseSession} className="text-xs font-medium px-2 py-1 rounded-md bg-white/20 hover:bg-white/30 transition-colors" title="Pause session">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+              </button>
+            ) : (
+              <button onClick={resumeSession} className="text-xs font-medium px-2 py-1 rounded-md bg-white/20 hover:bg-white/30 transition-colors" title="Resume session">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+            <button onClick={stopSession} className="text-xs font-medium px-2.5 py-1 rounded-md bg-white/20 hover:bg-white/30 transition-colors">Stop</button>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          {/* Pause / Resume button */}
-          {phase !== 'paused' ? (
-            <button
-              onClick={pauseSession}
-              className="text-xs font-medium px-2 py-1 rounded-md bg-white/20 hover:bg-white/30 transition-colors"
-              title="Pause session"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </button>
-          ) : (
-            <button
-              onClick={resumeSession}
-              className="text-xs font-medium px-2 py-1 rounded-md bg-white/20 hover:bg-white/30 transition-colors"
-              title="Resume session"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-              </svg>
-            </button>
-          )}
-          <button
-            onClick={stopSession}
-            className="text-xs font-medium px-2.5 py-1 rounded-md bg-white/20 hover:bg-white/30 transition-colors"
-          >
-            Stop
-          </button>
-        </div>
-      </div>
 
-      {/* Progress */}
-      <div className="px-4 pt-3 pb-2">
-        <div className="flex items-center justify-between mb-1.5">
-          <span className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate max-w-[60%]" title={listName}>
-            {listName}
-          </span>
-          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-            {progress.total - progress.remaining}/{progress.total}
-          </span>
+        {/* Progress bar */}
+        <div className="px-4 pt-3 pb-2 shrink-0">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-medium text-gray-600 dark:text-gray-400 truncate max-w-[60%]" title={listName}>{listName}</span>
+            <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{progress.total - progress.remaining}/{progress.total}</span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
+            <div className="bg-brand-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${percentage}%` }} />
+          </div>
         </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
-          <div
-            className="bg-brand-500 h-1.5 rounded-full transition-all duration-300"
-            style={{ width: `${percentage}%` }}
-          />
-        </div>
-      </div>
 
-      {/* Body */}
-      <div className="px-4 pb-4">
         {/* Current entry info */}
         {currentEntry && (
-          <div className="mt-2 mb-3">
-            <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
-              {currentEntry.name || 'Unknown'}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-              {currentEntry.phone_number}
-            </p>
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700 shrink-0">
+            <p className="text-sm font-semibold text-gray-800 dark:text-white truncate">{currentEntry.name || 'Unknown'}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mt-0.5">{currentEntry.phone_number}</p>
             {currentEntry.primary_email && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 truncate" title={currentEntry.primary_email}>
-                {currentEntry.primary_email}
-              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5" title={currentEntry.primary_email}>{currentEntry.primary_email}</p>
             )}
             {(() => {
               const trademark = getMetaField(currentEntry.metadata, ['word mark', 'mark', 'trademark']);
@@ -243,7 +216,7 @@ export default function PowerDialerOverlay() {
               const statusDate = getMetaField(currentEntry.metadata, ['status date']);
               if (!trademark && !serial && !statusDate) return null;
               return (
-                <div className="mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5">
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1">
                   {trademark && (
                     <div className="col-span-2">
                       <span className="text-[10px] text-gray-400 dark:text-gray-500">Trademark</span>
@@ -268,18 +241,16 @@ export default function PowerDialerOverlay() {
           </div>
         )}
 
-        {/* Dialing phase */}
-        {phase === 'dialing' && (
-          <div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-brand-600 dark:text-brand-400 font-medium">
-                Dialing...
-              </span>
+        {/* Phase indicator */}
+        <div className="px-4 pt-3 shrink-0">
+          {phase === 'dialing' && (
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-brand-600 dark:text-brand-400 font-medium">Dialing...</span>
               <div className="flex items-center gap-1.5">
                 {inCall && (
                   <button
                     onClick={() => setShowKeypad((v) => !v)}
-                    className={`text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${showKeypad ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                    className={`text-xs font-medium px-2.5 py-1 rounded-lg transition-colors ${showKeypad ? 'bg-brand-100 dark:bg-brand-900/40 text-brand-600 dark:text-brand-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
                     title="Toggle keypad"
                   >
                     Keypad
@@ -287,74 +258,78 @@ export default function PowerDialerOverlay() {
                 )}
                 <button
                   onClick={skipEntry}
-                  className="text-xs font-medium px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                  className="text-xs font-medium px-2.5 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                 >
                   Skip
                 </button>
               </div>
             </div>
-
-            {/* In-call DTMF keypad */}
-            {inCall && showKeypad && (
-              <div className="mt-3 grid grid-cols-3 gap-1.5">
-                {['1','2','3','4','5','6','7','8','9','*','0','#'].map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => sendDTMF(key)}
-                    className="bg-gray-50 dark:bg-gray-700 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 active:bg-brand-100 dark:active:bg-brand-900/50 rounded-lg py-2.5 text-lg font-medium transition-colors dark:text-gray-200"
-                  >
-                    {key}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Wrap-up phase */}
-        {phase === 'wrap_up' && !showFollowUp && (
-          <div>
+          )}
+          {phase === 'wrap_up' && !showFollowUp && (
             <div className="mb-3">
               <span className={`text-xs font-semibold ${timerPaused ? 'text-yellow-600 dark:text-yellow-400' : 'text-orange-600 dark:text-orange-400'}`}>
                 {timerPaused ? 'Timer paused' : `Wrap-up: ${wrapUpTimer}s`}
               </span>
             </div>
-            <div className="grid grid-cols-2 gap-1.5">
+          )}
+          {phase === 'paused' && (
+            <div className="text-center py-3 mb-3">
+              <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400 mb-1">Session Paused</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Click resume to continue dialing</p>
+            </div>
+          )}
+        </div>
+
+        {/* In-call DTMF keypad */}
+        {phase === 'dialing' && inCall && showKeypad && (
+          <div className="px-4 pb-3 shrink-0">
+            <div className="grid grid-cols-3 gap-1.5">
+              {['1','2','3','4','5','6','7','8','9','*','0','#'].map((key) => (
+                <button
+                  key={key}
+                  onClick={() => sendDTMF(key)}
+                  className="bg-gray-50 dark:bg-gray-700 hover:bg-brand-50 dark:hover:bg-brand-900/30 hover:text-brand-600 dark:hover:text-brand-400 active:bg-brand-100 dark:active:bg-brand-900/50 rounded-lg py-2 text-base font-medium transition-colors dark:text-gray-200"
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Status buttons — always visible (dialing + wrap_up) */}
+        {(phase === 'dialing' || phase === 'wrap_up') && !showFollowUp && (
+          <div className="px-4 pb-3 shrink-0">
+            <p className="text-[10px] uppercase tracking-wider font-semibold text-gray-400 dark:text-gray-500 mb-2">Set Status</p>
+            <div className="grid grid-cols-1 gap-1.5">
               {STATUS_BUTTONS.map(({ status, label, bg, darkBg }) => (
                 <button
                   key={status}
                   onClick={() => handleStatusClick(status)}
-                  className={`text-xs font-medium text-white px-2 py-1.5 rounded-lg transition-colors ${bg} ${darkBg}`}
+                  className={`text-xs font-medium text-white px-3 py-2 rounded-lg transition-colors ${bg} ${darkBg}`}
                 >
                   {label}
                 </button>
               ))}
             </div>
-            <button
-              onClick={recallEntry}
-              className="w-full mt-2 text-xs font-medium text-white px-2 py-1.5 rounded-lg transition-colors bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-600"
-            >
-              Recall
-            </button>
+            {phase === 'wrap_up' && (
+              <button
+                onClick={recallEntry}
+                className="w-full mt-2 text-xs font-medium text-white px-3 py-2 rounded-lg transition-colors bg-purple-600 hover:bg-purple-700 dark:bg-purple-700 dark:hover:bg-purple-600"
+              >
+                Recall
+              </button>
+            )}
           </div>
         )}
 
-        {/* Follow-up picker (replaces status buttons when active) */}
-        {phase === 'wrap_up' && showFollowUp && (
-          <FollowUpPicker
-            onConfirm={handleFollowUpConfirm}
-            onCancel={handleFollowUpCancel}
-          />
-        )}
-
-        {/* Paused phase */}
-        {phase === 'paused' && (
-          <div className="text-center py-3">
-            <p className="text-sm font-medium text-yellow-600 dark:text-yellow-400 mb-1">Session Paused</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">Click resume to continue dialing</p>
+        {/* Follow-up picker */}
+        {(phase === 'dialing' || phase === 'wrap_up') && showFollowUp && (
+          <div className="px-4 pb-3 shrink-0">
+            <FollowUpPicker onConfirm={handleFollowUpConfirm} onCancel={handleFollowUpCancel} />
           </div>
         )}
       </div>
-    </div>
+    </>
   );
 }

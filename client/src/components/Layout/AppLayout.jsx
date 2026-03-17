@@ -4,10 +4,12 @@ import Sidebar from './Sidebar';
 import ActiveCallBanner from '../Dialer/ActiveCallBanner';
 import IncomingCallModal from '../Dialer/IncomingCallModal';
 import PowerDialerOverlay from '../PowerDialer/PowerDialerOverlay';
+import { usePowerDialer } from '../../context/PowerDialerContext';
 
 export default function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+  const { isActive: powerDialActive } = usePowerDialer();
 
   useEffect(() => {
     if (darkMode) {
@@ -32,8 +34,8 @@ export default function AppLayout() {
 
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} darkMode={darkMode} onToggleDarkMode={toggleDarkMode} />
 
-      {/* Main content - offset by sidebar width on desktop */}
-      <div className="flex-1 flex flex-col min-w-0 md:ml-[220px]">
+      {/* Main content - offset by sidebar width on desktop, and by power dialer panel when active */}
+      <div className={`flex-1 flex flex-col min-w-0 md:ml-[220px] ${powerDialActive ? 'md:pr-72' : ''} transition-[padding] duration-300`}>
         {/* Mobile header */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <button
