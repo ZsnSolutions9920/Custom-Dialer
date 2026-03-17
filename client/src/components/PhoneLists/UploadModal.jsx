@@ -44,6 +44,36 @@ function detectColumnIndex(headers, candidates) {
   return -1;
 }
 
+function looksLikePhone(value) {
+  if (!value) return false;
+  const digits = String(value).replace(/[^0-9]/g, '');
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+function isHeaderRow(row) {
+  return row.some((cell) => {
+    const s = String(cell).toLowerCase().replace(/[^a-z0-9]/g, '');
+    return ['phone', 'phonenumber', 'name', 'email', 'mobile', 'cell', 'telephone', 'number', 'contactnumber', 'tel'].includes(s);
+  });
+}
+
+function detectPhoneColumnByData(headers, rows) {
+  if (headers.length === 1) return 0;
+  let bestCol = -1;
+  let bestScore = 0;
+  const sampleRows = rows.slice(0, Math.min(20, rows.length));
+  if (sampleRows.length === 0) return -1;
+  for (let col = 0; col < headers.length; col++) {
+    const phoneCount = sampleRows.filter((row) => looksLikePhone(row[col])).length;
+    const score = phoneCount / sampleRows.length;
+    if (score > bestScore && score >= 0.5) {
+      bestScore = score;
+      bestCol = col;
+    }
+  }
+  return bestCol;
+}
+
 export default function UploadModal({ onClose, onUploaded, toast }) {
   const [file, setFile] = useState(null);
   const [listName, setListName] = useState('');
@@ -62,11 +92,22 @@ export default function UploadModal({ onClose, onUploaded, toast }) {
       const lines = text.split(/\r?\n/).filter((l) => l.trim());
       if (lines.length === 0) return;
       const delimiter = detectDelimiter(lines[0]);
-      const headers = parseLine(lines[0], delimiter);
-      for (let i = 1; i < lines.length; i++) rows.push(parseLine(lines[i], delimiter));
+      const firstRow = parseLine(lines[0], delimiter);
+      let headers;
+      let dataStartIndex;
+      if (isHeaderRow(firstRow)) {
+        headers = firstRow;
+        dataStartIndex = 1;
+      } else {
+        headers = firstRow.map((_, i) => `Column ${i + 1}`);
+        dataStartIndex = 0;
+      }
+      for (let i = dataStartIndex; i < lines.length; i++) rows.push(parseLine(lines[i], delimiter));
       allRowsRef.current = rows;
+      const phoneCandidates = ['phone', 'phone number', 'telephone', 'mobile', 'cell', 'number', 'contact number', 'phone no', 'tel', 'mob', 'dial', 'ph'];
       const nc = detectColumnIndex(headers, ['name', 'client name', 'full name', 'contact name', 'owner name', 'first name']);
-      const pc = detectColumnIndex(headers, ['phone', 'phone number', 'telephone', 'mobile', 'cell']);
+      let pc = detectColumnIndex(headers, phoneCandidates);
+      if (pc === -1) pc = detectPhoneColumnByData(headers, rows);
       const ec = detectColumnIndex(headers, ['email', 'email address', 'primary email', 'e-mail']);
       setNameCol(nc);
       setPhoneCol(pc);
@@ -78,11 +119,22 @@ export default function UploadModal({ onClose, onUploaded, toast }) {
       const ws = wb.Sheets[wb.SheetNames[0]];
       const data = utils.sheet_to_json(ws, { header: 1, defval: '' });
       if (data.length === 0) return;
-      const headers = data[0].map(String);
-      for (let i = 1; i < data.length; i++) rows.push(data[i].map(String));
+      const firstRow = data[0].map(String);
+      let headers;
+      let dataStartIndex;
+      if (isHeaderRow(firstRow)) {
+        headers = firstRow;
+        dataStartIndex = 1;
+      } else {
+        headers = firstRow.map((_, i) => `Column ${i + 1}`);
+        dataStartIndex = 0;
+      }
+      for (let i = dataStartIndex; i < data.length; i++) rows.push(data[i].map(String));
       allRowsRef.current = rows;
+      const phoneCandidates = ['phone', 'phone number', 'telephone', 'mobile', 'cell', 'number', 'contact number', 'phone no', 'tel', 'mob', 'dial', 'ph'];
       const nc = detectColumnIndex(headers, ['name', 'client name', 'full name', 'contact name', 'owner name', 'first name']);
-      const pc = detectColumnIndex(headers, ['phone', 'phone number', 'telephone', 'mobile', 'cell']);
+      let pc = detectColumnIndex(headers, phoneCandidates);
+      if (pc === -1) pc = detectPhoneColumnByData(headers, rows);
       const ec = detectColumnIndex(headers, ['email', 'email address', 'primary email', 'e-mail']);
       setNameCol(nc);
       setPhoneCol(pc);
