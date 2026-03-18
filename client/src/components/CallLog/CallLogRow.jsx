@@ -43,12 +43,12 @@ export default function CallLogRow({ call, onCallUpdated, onCallDeleted }) {
                 ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/30 dark:text-brand-400'
                 : 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
             }`}
-            onDoubleClick={call.direction === 'outbound' ? async () => {
+            onDoubleClick={async () => {
               try {
                 await deleteCallLog(call.id);
                 if (onCallDeleted) onCallDeleted(call.id);
               } catch (e) { /* silent */ }
-            } : undefined}
+            }}
           >
             {call.direction}
           </span>
